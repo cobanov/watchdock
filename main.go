@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-//go:embed web
+//go:embed all:web/dist
 var webFS embed.FS
 
 func envOr(key, fallback string) string {
@@ -54,7 +54,7 @@ func main() {
 	go monitor.Run(ctx)
 
 	mux := http.NewServeMux()
-	web, _ := fs.Sub(webFS, "web")
+	web, _ := fs.Sub(webFS, "web/dist")
 	mux.Handle("GET /", http.FileServerFS(web))
 	mux.HandleFunc("GET /api/containers", handleContainers(docker, store))
 	mux.HandleFunc("GET /api/config", handleGetConfig(store))

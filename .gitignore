@@ -1,3 +1,5 @@
 dockwatch
 config.json
 .DS_Store
+node_modules/
+web/dist/

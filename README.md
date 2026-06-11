@@ -6,7 +6,7 @@ A tiny self-hosted watchdog for your Docker containers. It runs as a container i
 - 💀 **Crashed** — a container dies with a non-zero exit code (manual `docker stop` is ignored)
 - ✅ **Recovered** — a container comes back healthy / back up
 
-Single static Go binary, zero dependencies, ~10 MB image. Works anywhere Docker Desktop or the Docker daemon runs: macOS, Windows (WSL2), Linux.
+Single static Go binary with zero Go dependencies, ~10 MB image. The web UI is React + [shadcn/ui](https://ui.shadcn.com), embedded into the binary at build time. Works anywhere Docker Desktop or the Docker daemon runs: macOS, Windows (WSL2), Linux.
 
 ## Quick start
 
@@ -49,7 +49,14 @@ dockwatch subscribes to the Docker events stream over the (read-only) mounted so
 ## Development
 
 ```bash
-DOCKER_SOCKET=/var/run/docker.sock CONFIG_PATH=./config.json go run .
+# build the UI once (go:embed needs web/dist to exist)
+cd web && npm install && npm run build && cd ..
+
+# run the backend
+CONFIG_PATH=./config.json go run .
+
+# UI dev server with hot reload (proxies /api to :9622)
+cd web && npm run dev
 ```
 
 ## License

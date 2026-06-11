@@ -1,0 +1,136 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-heading: var(--font-mono);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --color-ok: var(--ok);
+    --color-warn: var(--warn);
+    --color-alert: var(--alert);
+    --color-idle: var(--idle);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * dockwatch — industrial control-room theme.
+ * Single dark theme: graphite with a faint teal cast, phosphor-green signal
+ * color, amber for degraded states, red for alerts.
+ */
+:root {
+    --background: oklch(0.165 0.011 195);
+    --foreground: oklch(0.92 0.008 185);
+    --card: oklch(0.195 0.012 195);
+    --card-foreground: oklch(0.92 0.008 185);
+    --popover: oklch(0.215 0.013 195);
+    --popover-foreground: oklch(0.92 0.008 185);
+    --primary: oklch(0.84 0.155 158);
+    --primary-foreground: oklch(0.17 0.03 162);
+    --secondary: oklch(0.25 0.013 195);
+    --secondary-foreground: oklch(0.92 0.008 185);
+    --muted: oklch(0.23 0.012 195);
+    --muted-foreground: oklch(0.62 0.018 190);
+    --accent: oklch(0.245 0.015 195);
+    --accent-foreground: oklch(0.92 0.008 185);
+    --destructive: oklch(0.66 0.2 25);
+    --border: oklch(0.95 0.01 185 / 9%);
+    --input: oklch(0.95 0.01 185 / 13%);
+    --ring: oklch(0.84 0.155 158 / 55%);
+    --chart-1: oklch(0.84 0.155 158);
+    --chart-2: oklch(0.8 0.13 85);
+    --chart-3: oklch(0.66 0.2 25);
+    --chart-4: oklch(0.62 0.018 190);
+    --chart-5: oklch(0.45 0.015 195);
+    --radius: 0.45rem;
+    --sidebar: oklch(0.135 0.01 195);
+    --sidebar-foreground: oklch(0.92 0.008 185);
+    --sidebar-primary: oklch(0.84 0.155 158);
+    --sidebar-primary-foreground: oklch(0.17 0.03 162);
+    --sidebar-accent: oklch(0.205 0.013 195);
+    --sidebar-accent-foreground: oklch(0.92 0.008 185);
+    --sidebar-border: oklch(0.95 0.01 185 / 8%);
+    --sidebar-ring: oklch(0.84 0.155 158 / 55%);
+    --ok: oklch(0.84 0.155 158);
+    --warn: oklch(0.82 0.14 85);
+    --alert: oklch(0.68 0.21 25);
+    --idle: oklch(0.55 0.016 195);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-sidebar text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+  ::selection {
+    background: oklch(0.84 0.155 158 / 30%);
+    }
+}
+
+/* Status LED: colored dot with a phosphor glow, driven by currentColor. */
+.led {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 9999px;
+  background: currentColor;
+  box-shadow: 0 0 5px 1px currentColor;
+}
+.led-pulse {
+  animation: led-pulse 1.6s ease-in-out infinite;
+}
+@keyframes led-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Faint engineering dot-grid behind the main console area. */
+.console-grid {
+  background-image: radial-gradient(circle, oklch(1 0 0 / 3.5%) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
