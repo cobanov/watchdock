@@ -40,6 +40,8 @@ Notifications fire only on state *transitions* and are rate-limited to one per c
 
 Click **+** next to *Hosts* in the sidebar and enter the machine's address, SSH user and (optionally) port, alias and key path. Requirements on the remote machine: public-key SSH auth and your user able to access `/var/run/docker.sock` (i.e. in the `docker` group).
 
+Hosts are paused/resumed with the toggle next to their name — pausing keeps the host in the config but stops monitoring. To remove one permanently, delete its entry from `config.json` in the data volume.
+
 Keys are read from `~/.ssh`, mounted read-only into the container (see `docker-compose.yml`). Passphrase-protected keys work through ssh-agent forwarding, which Docker Desktop exposes automatically on macOS/Windows; on Linux, point the `SSH_AUTH_SOCK` mount at your agent socket instead. Host keys are pinned on first use to `/data/known_hosts`.
 
 ### Environment variables

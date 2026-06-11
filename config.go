@@ -21,11 +21,12 @@ type Config struct {
 
 // HostConfig describes a remote Docker daemon reached over SSH.
 type HostConfig struct {
-	Alias   string `json:"alias"`
-	Host    string `json:"host"`
-	User    string `json:"user"`
-	Port    int    `json:"port,omitempty"`    // 0 means 22
-	KeyPath string `json:"keyPath,omitempty"` // empty: default keys in /ssh
+	Alias    string `json:"alias"`
+	Host     string `json:"host"`
+	User     string `json:"user"`
+	Port     int    `json:"port,omitempty"`    // 0 means 22
+	KeyPath  string `json:"keyPath,omitempty"` // empty: default keys in /ssh
+	Disabled bool   `json:"disabled,omitempty"`
 }
 
 func defaultConfig() Config {

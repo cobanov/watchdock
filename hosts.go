@@ -74,6 +74,9 @@ func (hm *HostManager) stopLocked(alias string) {
 func (hm *HostManager) Reload() {
 	want := map[string]HostConfig{}
 	for _, h := range hm.store.Get().Hosts {
+		if h.Disabled {
+			continue
+		}
 		want[h.Alias] = h
 	}
 
@@ -98,9 +101,10 @@ func (hm *HostManager) Reload() {
 }
 
 type hostStatus struct {
-	Alias string `json:"alias"`
-	OK    bool   `json:"ok"`
-	Error string `json:"error,omitempty"`
+	Alias    string `json:"alias"`
+	OK       bool   `json:"ok"`
+	Error    string `json:"error,omitempty"`
+	Disabled bool   `json:"disabled,omitempty"`
 }
 
 type hostedContainer struct {
@@ -111,13 +115,20 @@ type hostedContainer struct {
 // Snapshot lists containers on every host in parallel. Host order: local
 // first, then config order.
 func (hm *HostManager) Snapshot(ctx context.Context, cfg Config) ([]hostStatus, []hostedContainer) {
+	type snapHost struct {
+		alias    string
+		client   *DockerClient // nil for disabled hosts
+		disabled bool
+	}
 	hm.mu.Lock()
-	order := []string{localHostAlias}
-	clients := map[string]*DockerClient{localHostAlias: hm.hosts[localHostAlias].client}
+	snap := []snapHost{{alias: localHostAlias, client: hm.hosts[localHostAlias].client}}
 	for _, h := range cfg.Hosts {
+		if h.Disabled {
+			snap = append(snap, snapHost{alias: h.Alias, disabled: true})
+			continue
+		}
 		if rt, ok := hm.hosts[h.Alias]; ok {
-			order = append(order, h.Alias)
-			clients[h.Alias] = rt.client
+			snap = append(snap, snapHost{alias: h.Alias, client: rt.client})
 		}
 	}
 	hm.mu.Unlock()
@@ -126,11 +137,15 @@ func (hm *HostManager) Snapshot(ctx context.Context, cfg Config) ([]hostStatus, 
 		status     hostStatus
 		containers []hostedContainer
 	}
-	results := make(map[string]result, len(order))
+	results := make(map[string]result, len(snap))
 	var wg sync.WaitGroup
 	var resMu sync.Mutex
 
-	for _, alias := range order {
+	for _, sh := range snap {
+		if sh.disabled {
+			results[sh.alias] = result{status: hostStatus{Alias: sh.alias, OK: true, Disabled: true}}
+			continue
+		}
 		wg.Add(1)
 		go func(alias string, client *DockerClient) {
 			defer wg.Done()
@@ -150,14 +165,14 @@ func (hm *HostManager) Snapshot(ctx context.Context, cfg Config) ([]hostStatus, 
 			resMu.Lock()
 			results[alias] = res
 			resMu.Unlock()
-		}(alias, clients[alias])
+		}(sh.alias, sh.client)
 	}
 	wg.Wait()
 
-	statuses := make([]hostStatus, 0, len(order))
+	statuses := make([]hostStatus, 0, len(snap))
 	containers := []hostedContainer{}
-	for _, alias := range order {
-		res := results[alias]
+	for _, sh := range snap {
+		res := results[sh.alias]
 		statuses = append(statuses, res.status)
 		containers = append(containers, res.containers...)
 	}

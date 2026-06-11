@@ -15,12 +15,14 @@ export interface HostConfig {
   user: string
   port?: number
   keyPath?: string
+  disabled?: boolean
 }
 
 export interface HostStatus {
   alias: string
   ok: boolean
   error?: string
+  disabled?: boolean
 }
 
 export interface Config {
@@ -67,9 +69,12 @@ export async function addHost(h: HostConfig): Promise<Config> {
   return saveConfig({ ...cfg, hosts: [...cfg.hosts, h] })
 }
 
-export async function removeHost(alias: string): Promise<Config> {
+export async function setHostDisabled(alias: string, disabled: boolean): Promise<Config> {
   const cfg = await fetchConfig()
-  return saveConfig({ ...cfg, hosts: cfg.hosts.filter((h) => h.alias !== alias) })
+  return saveConfig({
+    ...cfg,
+    hosts: cfg.hosts.map((h) => (h.alias === alias ? { ...h, disabled } : h)),
+  })
 }
 
 export type StatusKind = "ok" | "warn" | "alert" | "idle"

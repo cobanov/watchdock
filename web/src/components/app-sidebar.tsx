@@ -1,4 +1,4 @@
-import { BellRing, Boxes, PlusIcon, Trash2Icon } from "lucide-react"
+import { BellRing, Boxes, PauseIcon, PlayIcon, PlusIcon } from "lucide-react"
 import { toast } from "sonner"
 import {
   Sidebar,
@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
-import { removeHost, type HostStatus } from "@/lib/api"
+import { setHostDisabled, type HostStatus } from "@/lib/api"
 import type { View } from "@/App"
 
 export interface FleetCounts {
@@ -49,7 +49,7 @@ function beacon(apiOnline: boolean, counts: FleetCounts, hosts: HostStatus[]) {
       pulse: true,
     }
   }
-  const offline = hosts.filter((h) => !h.ok)
+  const offline = hosts.filter((h) => !h.ok && !h.disabled)
   if (offline.length > 0) {
     return {
       label: `${offline.length} host${offline.length > 1 ? "s" : ""} offline`,
@@ -73,10 +73,10 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const b = beacon(apiOnline, counts, hosts)
 
-  const handleRemove = async (alias: string) => {
+  const handleToggle = async (alias: string, disabled: boolean) => {
     try {
-      await removeHost(alias)
-      toast.success(`Host "${alias}" removed`)
+      await setHostDisabled(alias, disabled)
+      toast.success(disabled ? `Monitoring paused for "${alias}"` : `Monitoring resumed for "${alias}"`)
       onHostsChanged()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
@@ -157,23 +157,34 @@ export function AppSidebar({
                       onSelectHost(selectedHost === h.alias ? "all" : h.alias)
                       onNavigate("containers")
                     }}
-                    title={h.error}
+                    title={h.disabled ? "Monitoring paused" : h.error}
                   >
                     <span
                       className={cn(
                         "led",
-                        h.ok ? "text-ok" : "text-alert led-pulse",
+                        h.disabled
+                          ? "text-idle"
+                          : h.ok
+                            ? "text-ok"
+                            : "text-alert led-pulse",
                       )}
                     />
-                    <span className="font-mono text-[13px]">{h.alias}</span>
+                    <span
+                      className={cn(
+                        "font-mono text-[13px]",
+                        h.disabled && "text-muted-foreground line-through decoration-border",
+                      )}
+                    >
+                      {h.alias}
+                    </span>
                   </SidebarMenuButton>
                   {h.alias !== "local" && (
                     <SidebarMenuAction
-                      showOnHover
-                      title={`Remove ${h.alias}`}
-                      onClick={() => handleRemove(h.alias)}
+                      showOnHover={!h.disabled}
+                      title={h.disabled ? `Resume monitoring ${h.alias}` : `Pause monitoring ${h.alias}`}
+                      onClick={() => handleToggle(h.alias, !h.disabled)}
                     >
-                      <Trash2Icon />
+                      {h.disabled ? <PlayIcon /> : <PauseIcon />}
                     </SidebarMenuAction>
                   )}
                 </SidebarMenuItem>
