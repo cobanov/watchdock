@@ -5,9 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-    --font-heading: var(--font-mono);
+    --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-heading: var(--font-sans);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -53,47 +53,47 @@
 }
 
 /*
- * dockwatch — industrial control-room theme.
- * Single dark theme: graphite with a faint teal cast, phosphor-green signal
- * color, amber for degraded states, red for alerts.
+ * dockwatch — clean monochrome theme.
+ * Off-white canvas, white panels, near-black ink, hairline borders.
+ * Color appears only as status: a calm green, amber and red.
  */
 :root {
-    --background: oklch(0.165 0.011 195);
-    --foreground: oklch(0.92 0.008 185);
-    --card: oklch(0.195 0.012 195);
-    --card-foreground: oklch(0.92 0.008 185);
-    --popover: oklch(0.215 0.013 195);
-    --popover-foreground: oklch(0.92 0.008 185);
-    --primary: oklch(0.84 0.155 158);
-    --primary-foreground: oklch(0.17 0.03 162);
-    --secondary: oklch(0.25 0.013 195);
-    --secondary-foreground: oklch(0.92 0.008 185);
-    --muted: oklch(0.23 0.012 195);
-    --muted-foreground: oklch(0.62 0.018 190);
-    --accent: oklch(0.245 0.015 195);
-    --accent-foreground: oklch(0.92 0.008 185);
-    --destructive: oklch(0.66 0.2 25);
-    --border: oklch(0.95 0.01 185 / 9%);
-    --input: oklch(0.95 0.01 185 / 13%);
-    --ring: oklch(0.84 0.155 158 / 55%);
-    --chart-1: oklch(0.84 0.155 158);
-    --chart-2: oklch(0.8 0.13 85);
-    --chart-3: oklch(0.66 0.2 25);
-    --chart-4: oklch(0.62 0.018 190);
-    --chart-5: oklch(0.45 0.015 195);
-    --radius: 0.45rem;
-    --sidebar: oklch(0.135 0.01 195);
-    --sidebar-foreground: oklch(0.92 0.008 185);
-    --sidebar-primary: oklch(0.84 0.155 158);
-    --sidebar-primary-foreground: oklch(0.17 0.03 162);
-    --sidebar-accent: oklch(0.205 0.013 195);
-    --sidebar-accent-foreground: oklch(0.92 0.008 185);
-    --sidebar-border: oklch(0.95 0.01 185 / 8%);
-    --sidebar-ring: oklch(0.84 0.155 158 / 55%);
-    --ok: oklch(0.84 0.155 158);
-    --warn: oklch(0.82 0.14 85);
-    --alert: oklch(0.68 0.21 25);
-    --idle: oklch(0.55 0.016 195);
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.19 0.004 285);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.19 0.004 285);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.19 0.004 285);
+    --primary: oklch(0.2 0.004 285);
+    --primary-foreground: oklch(0.99 0 0);
+    --secondary: oklch(0.96 0.002 286);
+    --secondary-foreground: oklch(0.19 0.004 285);
+    --muted: oklch(0.96 0.002 286);
+    --muted-foreground: oklch(0.5 0.008 285);
+    --accent: oklch(0.955 0.002 286);
+    --accent-foreground: oklch(0.19 0.004 285);
+    --destructive: oklch(0.55 0.19 27);
+    --border: oklch(0.905 0.003 286);
+    --input: oklch(0.885 0.003 286);
+    --ring: oklch(0.2 0.004 285 / 25%);
+    --chart-1: oklch(0.55 0.13 152);
+    --chart-2: oklch(0.66 0.13 75);
+    --chart-3: oklch(0.55 0.19 27);
+    --chart-4: oklch(0.5 0.008 285);
+    --chart-5: oklch(0.7 0.005 285);
+    --radius: 0.6rem;
+    --sidebar: oklch(0.972 0.002 286);
+    --sidebar-foreground: oklch(0.19 0.004 285);
+    --sidebar-primary: oklch(0.2 0.004 285);
+    --sidebar-primary-foreground: oklch(0.99 0 0);
+    --sidebar-accent: oklch(0.925 0.003 286);
+    --sidebar-accent-foreground: oklch(0.19 0.004 285);
+    --sidebar-border: oklch(0.905 0.003 286);
+    --sidebar-ring: oklch(0.2 0.004 285 / 25%);
+    --ok: oklch(0.55 0.13 152);
+    --warn: oklch(0.6 0.13 70);
+    --alert: oklch(0.55 0.19 27);
+    --idle: oklch(0.62 0.006 285);
 }
 
 @layer base {
@@ -101,17 +101,14 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-sidebar text-foreground;
+    @apply bg-sidebar text-foreground antialiased;
     }
   html {
     @apply font-sans;
     }
-  ::selection {
-    background: oklch(0.84 0.155 158 / 30%);
-    }
 }
 
-/* Status LED: colored dot with a phosphor glow, driven by currentColor. */
+/* Flat status dot. */
 .led {
   display: inline-block;
   width: 7px;
@@ -119,7 +116,6 @@
   flex: none;
   border-radius: 9999px;
   background: currentColor;
-  box-shadow: 0 0 5px 1px currentColor;
 }
 .led-pulse {
   animation: led-pulse 1.6s ease-in-out infinite;
@@ -127,10 +123,4 @@
 @keyframes led-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
-}
-
-/* Faint engineering dot-grid behind the main console area. */
-.console-grid {
-  background-image: radial-gradient(circle, oklch(1 0 0 / 3.5%) 1px, transparent 1px);
-  background-size: 22px 22px;
 }

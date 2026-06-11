@@ -16,8 +16,8 @@ export type View = "containers" | "notifications"
 const POLL_INTERVAL_MS = 5000
 
 const VIEW_TITLES: Record<View, string> = {
-  containers: "containers",
-  notifications: "notifications",
+  containers: "Containers",
+  notifications: "Notifications",
 }
 
 function viewFromHash(): View {
@@ -75,15 +75,13 @@ export default function App() {
         <header className="flex h-14 flex-none items-center gap-3 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="!h-5" />
-          <h1 className="font-mono text-xs font-semibold uppercase tracking-[0.24em]">
-            {VIEW_TITLES[view]}
-          </h1>
-          <div className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+          <h1 className="text-sm font-semibold tracking-tight">{VIEW_TITLES[view]}</h1>
+          <div className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             <span className={cn("led", online ? "text-ok" : "text-alert led-pulse")} />
             {online ? "live · 5s poll" : "daemon offline"}
           </div>
         </header>
-        <main className="console-grid flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {view === "containers" ? (
             <ContainersView containers={containers} counts={counts} error={daemonError} />
           ) : (

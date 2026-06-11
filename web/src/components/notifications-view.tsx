@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { WindowTitle } from "@/components/window-title"
 import { cn } from "@/lib/utils"
 import {
   fetchConfig,
@@ -155,8 +156,16 @@ export function NotificationsView() {
         </div>
       </div>
 
-      {!cfg.ntfyTopic.trim() && (
-        <div className="flex items-center gap-2.5 rounded-md border border-warn/30 bg-warn/5 px-3.5 py-2.5 text-sm text-warn">
+      {cfg.ntfyTopic.trim() ? (
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-ok/25 bg-ok/10 px-3.5 py-2.5 text-sm">
+          <span className="font-semibold text-ok">Notifications armed</span>
+          <span className="font-mono text-xs text-ok/80">
+            {(cfg.ntfyServer.trim() || "https://ntfy.sh").replace(/^https?:\/\//, "")}/
+            {cfg.ntfyTopic.trim()}
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2.5 rounded-lg border border-warn/30 bg-warn/10 px-3.5 py-2.5 text-sm text-warn">
           <span className="led text-warn" />
           No topic configured — notifications are disabled until you set one.
         </div>
@@ -165,8 +174,8 @@ export function NotificationsView() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              {"// ntfy endpoint"}
+            <CardTitle>
+              <WindowTitle>ntfy endpoint</WindowTitle>
             </CardTitle>
             <CardDescription>
               Defaults to the public ntfy.sh service; any self-hosted server works too.
@@ -213,8 +222,8 @@ export function NotificationsView() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              {"// alert rules"}
+            <CardTitle>
+              <WindowTitle>alert rules</WindowTitle>
             </CardTitle>
             <CardDescription>
               Fires only on state transitions, rate-limited per container.
@@ -225,7 +234,7 @@ export function NotificationsView() {
               title="Unhealthy"
               description="A container's healthcheck starts failing"
               priority="urgent"
-              priorityClass="border-alert/40 text-alert"
+              priorityClass="border-alert/25 bg-alert/10 text-alert"
               checked={cfg.notifyUnhealthy}
               onChange={(v) => patch({ notifyUnhealthy: v })}
             />
@@ -233,7 +242,7 @@ export function NotificationsView() {
               title="Crashed"
               description="Died with a non-zero exit code; manual stops are ignored"
               priority="high"
-              priorityClass="border-warn/40 text-warn"
+              priorityClass="border-warn/25 bg-warn/10 text-warn"
               checked={cfg.notifyDown}
               onChange={(v) => patch({ notifyDown: v })}
             />
@@ -241,7 +250,7 @@ export function NotificationsView() {
               title="Recovered"
               description="Back to healthy, or back up after a crash"
               priority="default"
-              priorityClass="border-ok/40 text-ok"
+              priorityClass="border-ok/25 bg-ok/10 text-ok"
               checked={cfg.notifyRecovered}
               onChange={(v) => patch({ notifyRecovered: v })}
             />
@@ -250,8 +259,8 @@ export function NotificationsView() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              {"// ignore list"}
+            <CardTitle>
+              <WindowTitle>ignore list</WindowTitle>
             </CardTitle>
             <CardDescription>
               Containers matched here never trigger notifications. Comma separated,{" "}
