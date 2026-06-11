@@ -48,20 +48,18 @@ function StatCard({
   alert?: boolean
 }) {
   return (
-    <Card className="gap-1 py-4">
-      <CardHeader className="px-4">
+    <Card>
+      <CardHeader>
         <CardDescription>{label}</CardDescription>
-      </CardHeader>
-      <CardContent className="px-4">
-        <span
+        <CardTitle
           className={cn(
-            "text-3xl font-semibold tabular-nums tracking-tight",
+            "text-2xl font-semibold tabular-nums lg:text-3xl",
             alert && value > 0 && "text-alert",
           )}
         >
           {value}
-        </span>
-      </CardContent>
+        </CardTitle>
+      </CardHeader>
     </Card>
   )
 }
@@ -102,7 +100,7 @@ export function ContainersView({
   }, [containers, filter])
 
   return (
-    <div className="flex flex-col gap-4">
+    <>
       {offlineHosts.map((h) => (
         <Alert key={h.alias} variant="destructive">
           <TriangleAlertIcon />
@@ -111,7 +109,7 @@ export function ContainersView({
         </Alert>
       ))}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Running" value={counts.running} />
         <StatCard label="Unhealthy" value={counts.unhealthy} alert />
         <StatCard label="Stopped" value={counts.stopped} />
@@ -203,6 +201,6 @@ export function ContainersView({
           )}
         </CardContent>
       </Card>
-    </div>
+    </>
   )
 }

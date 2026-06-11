@@ -1,4 +1,4 @@
-import { BellRing, Boxes, PlusIcon } from "lucide-react"
+import { BellRing, Boxes, PlusIcon, RadarIcon } from "lucide-react"
 import { toast } from "sonner"
 import {
   Sidebar,
@@ -38,7 +38,7 @@ interface AppSidebarProps {
   onHostsChanged: () => void
 }
 
-function beacon(apiOnline: boolean, counts: FleetCounts, hosts: HostStatus[]) {
+function status(apiOnline: boolean, counts: FleetCounts, hosts: HostStatus[]) {
   if (!apiOnline) {
     return { label: "Daemon unreachable", className: "text-alert", pulse: true }
   }
@@ -71,7 +71,7 @@ export function AppSidebar({
   onAddHost,
   onHostsChanged,
 }: AppSidebarProps) {
-  const b = beacon(apiOnline, counts, hosts)
+  const s = status(apiOnline, counts, hosts)
 
   const handleToggle = async (alias: string, disabled: boolean) => {
     try {
@@ -85,57 +85,33 @@ export function AppSidebar({
     }
   }
 
+  const showContainers = (alias: string) => {
+    onSelectHost(alias)
+    onNavigate("containers")
+  }
+
   return (
     <Sidebar variant="inset">
       <SidebarHeader>
-        <div className="flex items-center gap-2.5 px-2 pt-2">
-          <div className="grid size-7 flex-none place-items-center rounded-md bg-primary">
-            <span className="size-2 rounded-full bg-ok" />
-          </div>
-          <div className="text-[17px] font-semibold tracking-tight">dockwatch</div>
-        </div>
-
-        <div className="mx-2 mt-3 flex items-center gap-2.5 rounded-lg border bg-background px-3 py-2.5">
-          <span className={cn("led", b.className, b.pulse && "led-pulse")} />
-          <span className="text-xs font-medium">{b.label}</span>
-        </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" onClick={() => showContainers("all")}>
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <RadarIcon className="size-4" />
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">dockwatch</span>
+                <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+                  <span className={cn("led !size-1.5", s.className, s.pulse && "led-pulse")} />
+                  {s.label}
+                </span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Console</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={view === "containers"}
-                  onClick={() => onNavigate("containers")}
-                >
-                  <Boxes />
-                  <span>Containers</span>
-                </SidebarMenuButton>
-                <SidebarMenuBadge className="text-muted-foreground">
-                  {counts.total}
-                </SidebarMenuBadge>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={view === "notifications"}
-                  onClick={() => onNavigate("notifications")}
-                >
-                  <BellRing />
-                  <span>Notifications</span>
-                </SidebarMenuButton>
-                {counts.unhealthy > 0 && (
-                  <SidebarMenuBadge className="text-alert">
-                    {counts.unhealthy}
-                  </SidebarMenuBadge>
-                )}
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
         <SidebarGroup>
           <SidebarGroupLabel>Hosts</SidebarGroupLabel>
           <SidebarGroupAction title="Add SSH host" onClick={onAddHost}>
@@ -143,15 +119,25 @@ export function AppSidebar({
           </SidebarGroupAction>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={view === "containers" && selectedHost === "all"}
+                  onClick={() => showContainers("all")}
+                >
+                  <Boxes />
+                  <span>All hosts</span>
+                </SidebarMenuButton>
+                <SidebarMenuBadge className="text-muted-foreground">
+                  {counts.total}
+                </SidebarMenuBadge>
+              </SidebarMenuItem>
+
               {hosts.map((h) => (
                 <SidebarMenuItem key={h.alias}>
                   <SidebarMenuButton
                     className={cn(h.alias !== "local" && "pr-12")}
-                    isActive={selectedHost === h.alias}
-                    onClick={() => {
-                      onSelectHost(selectedHost === h.alias ? "all" : h.alias)
-                      onNavigate("containers")
-                    }}
+                    isActive={view === "containers" && selectedHost === h.alias}
+                    onClick={() => showContainers(h.alias)}
                     title={h.disabled ? "Monitoring paused" : h.error}
                   >
                     <span
@@ -169,8 +155,9 @@ export function AppSidebar({
                     </span>
                   </SidebarMenuButton>
                   {h.alias !== "local" && (
-                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
                       <Switch
+                        size="sm"
                         checked={!h.disabled}
                         onCheckedChange={(enabled) => handleToggle(h.alias, !enabled)}
                         aria-label={`Toggle monitoring for ${h.alias}`}
@@ -182,12 +169,34 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Settings</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={view === "notifications"}
+                  onClick={() => onNavigate("notifications")}
+                >
+                  <BellRing />
+                  <span>Notifications</span>
+                </SidebarMenuButton>
+                {counts.unhealthy > 0 && (
+                  <SidebarMenuBadge className="text-alert">
+                    {counts.unhealthy}
+                  </SidebarMenuBadge>
+                )}
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center justify-between px-2 pb-1 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between px-2 py-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-2">
-            <span className={cn("led", apiOnline ? "text-ok" : "text-alert led-pulse")} />
+            <span className={cn("led !size-1.5", apiOnline ? "text-ok" : "text-alert led-pulse")} />
             {apiOnline ? "Connected" : "Offline"}
           </span>
           <span>v0.3</span>

@@ -116,21 +116,18 @@ export function NotificationsView() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Notifications</h2>
-          <p className="text-sm text-muted-foreground">
-            Alerts are pushed to your phone through{" "}
-            <a
-              href="https://ntfy.sh"
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-foreground underline underline-offset-4"
-            >
-              ntfy
-            </a>
-            . Subscribe to the same topic in the ntfy app.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Alerts are pushed to your phone through{" "}
+          <a
+            href="https://ntfy.sh"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            ntfy
+          </a>
+          . Subscribe to the same topic in the ntfy app.
+        </p>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleTest} disabled={testing}>
             {testing ? <Loader2Icon className="animate-spin" /> : <SendIcon />}

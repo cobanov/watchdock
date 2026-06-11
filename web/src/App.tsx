@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AddHostDialog } from "@/components/add-host-dialog"
 import { AppSidebar, type FleetCounts } from "@/components/app-sidebar"
-import { Badge } from "@/components/ui/badge"
 import { ContainersView } from "@/components/containers-view"
 import { NotificationsView } from "@/components/notifications-view"
 import { Separator } from "@/components/ui/separator"
@@ -21,9 +20,9 @@ export type View = "containers" | "notifications"
 
 const POLL_INTERVAL_MS = 5000
 
-const VIEW_TITLES: Record<View, string> = {
-  containers: "Containers",
-  notifications: "Notifications",
+function viewTitle(view: View, selectedHost: string): string {
+  if (view === "notifications") return "Notifications"
+  return selectedHost === "all" ? "All hosts" : selectedHost
 }
 
 function viewFromHash(): View {
@@ -119,19 +118,16 @@ export default function App() {
         onHostsChanged={refresh}
       />
       <SidebarInset>
-        <header className="flex h-14 flex-none items-center gap-3 border-b px-4">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="!h-5" />
-          <h1 className="text-sm font-semibold tracking-tight">{VIEW_TITLES[view]}</h1>
-          {view === "containers" && selectedHost !== "all" && (
-            <Badge variant="secondary">{selectedHost}</Badge>
-          )}
+          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:!h-4" />
+          <h1 className="text-base font-medium">{viewTitle(view, selectedHost)}</h1>
           <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-            <span className={cn("led", apiOnline ? "text-ok" : "text-alert led-pulse")} />
+            <span className={cn("led !size-1.5", apiOnline ? "text-ok" : "text-alert led-pulse")} />
             {apiOnline ? "Live · 5s" : "Offline"}
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 md:gap-6 md:p-6">
           {view === "containers" ? (
             <ContainersView
               containers={visibleContainers}
