@@ -5,9 +5,10 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-FROM golang:1.23-alpine AS build
+FROM golang:1.25-alpine AS build
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
+RUN go mod download
 COPY *.go ./
 COPY --from=ui /ui/dist ./web/dist
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /dockwatch .

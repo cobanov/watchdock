@@ -25,14 +25,17 @@ type DockerClient struct {
 }
 
 func NewDockerClient(socketPath string) *DockerClient {
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			var d net.Dialer
-			return d.DialContext(ctx, "unix", socketPath)
-		},
-	}
+	return NewDockerClientDialer(func(ctx context.Context, _, _ string) (net.Conn, error) {
+		var d net.Dialer
+		return d.DialContext(ctx, "unix", socketPath)
+	})
+}
+
+// NewDockerClientDialer builds a client over any stream transport, e.g. an
+// SSH-forwarded unix socket on a remote machine.
+func NewDockerClientDialer(dial func(ctx context.Context, network, addr string) (net.Conn, error)) *DockerClient {
 	return &DockerClient{
-		http: &http.Client{Transport: transport},
+		http: &http.Client{Transport: &http.Transport{DialContext: dial}},
 		base: "http://docker/" + apiVersion,
 	}
 }

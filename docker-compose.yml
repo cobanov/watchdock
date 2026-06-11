@@ -4,9 +4,15 @@ services:
     container_name: dockwatch
     ports:
       - "9622:9622"
+    environment:
+      # Docker Desktop (macOS/Windows) ssh-agent socket; harmless on Linux.
+      SSH_AUTH_SOCK: /run/host-services/ssh-auth.sock
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - dockwatch-data:/data
+      # SSH keys for monitoring remote hosts (read-only).
+      - ~/.ssh:/ssh:ro
+      - /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock
     restart: unless-stopped
 
 volumes:

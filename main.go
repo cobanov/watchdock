@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"os/signal"
 	"regexp"
 	"sort"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -47,18 +49,21 @@ func main() {
 	cancel()
 
 	notifier := NewNotifier(store)
-	monitor := NewMonitor(docker, store, notifier)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	go monitor.Run(ctx)
+
+	hostKeys := newTOFUKeyStore(envOr("KNOWN_HOSTS_PATH", "/data/known_hosts"))
+	hosts := NewHostManager(ctx, socket, store, notifier, hostKeys)
+	hosts.Start()
 
 	mux := http.NewServeMux()
 	web, _ := fs.Sub(webFS, "web/dist")
 	mux.Handle("GET /", http.FileServerFS(web))
-	mux.HandleFunc("GET /api/containers", handleContainers(docker, store))
+	mux.HandleFunc("GET /api/containers", handleContainers(hosts, store))
 	mux.HandleFunc("GET /api/config", handleGetConfig(store))
-	mux.HandleFunc("PUT /api/config", handlePutConfig(store))
+	mux.HandleFunc("PUT /api/config", handlePutConfig(store, hosts))
+	mux.HandleFunc("POST /api/hosts/test", handleTestHost(hosts))
 	mux.HandleFunc("POST /api/test", handleTest(notifier))
 
 	srv := &http.Server{Addr: ":" + port, Handler: mux}
@@ -95,40 +100,37 @@ type apiContainer struct {
 	Ignored bool   `json:"ignored"`
 }
 
-func handleContainers(docker *DockerClient, store *ConfigStore) http.HandlerFunc {
+func toAPIContainer(c Container, cfg Config) apiContainer {
+	id := c.ID
+	if len(id) > 12 {
+		id = id[:12]
+	}
+	return apiContainer{
+		ID:      id,
+		Name:    c.Name(),
+		Image:   c.Image,
+		State:   c.State,
+		Health:  healthFromStatus(c.Status),
+		Status:  c.Status,
+		Ignored: isIgnored(cfg.Ignore, c.Name()),
+	}
+}
+
+func handleContainers(hosts *HostManager, store *ConfigStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-		defer cancel()
-		list, err := docker.ListContainers(ctx)
-		if err != nil {
-			writeError(w, http.StatusBadGateway, err.Error())
-			return
-		}
 		cfg := store.Get()
-		out := make([]apiContainer, 0, len(list))
-		for _, c := range list {
-			id := c.ID
-			if len(id) > 12 {
-				id = id[:12]
-			}
-			out = append(out, apiContainer{
-				ID:      id,
-				Name:    c.Name(),
-				Image:   c.Image,
-				State:   c.State,
-				Health:  healthFromStatus(c.Status),
-				Status:  c.Status,
-				Ignored: isIgnored(cfg.Ignore, c.Name()),
-			})
-		}
-		sort.Slice(out, func(i, j int) bool {
-			ri, rj := out[i].State == "running", out[j].State == "running"
+		statuses, containers := hosts.Snapshot(r.Context(), cfg)
+		sort.SliceStable(containers, func(i, j int) bool {
+			ri, rj := containers[i].State == "running", containers[j].State == "running"
 			if ri != rj {
 				return ri
 			}
-			return out[i].Name < out[j].Name
+			return containers[i].Name < containers[j].Name
 		})
-		writeJSON(w, http.StatusOK, out)
+		writeJSON(w, http.StatusOK, map[string]any{
+			"hosts":      statuses,
+			"containers": containers,
+		})
 	}
 }
 
@@ -138,9 +140,44 @@ func handleGetConfig(store *ConfigStore) http.HandlerFunc {
 	}
 }
 
-var topicRe = regexp.MustCompile(`^[-_A-Za-z0-9]{1,64}$`)
+var (
+	topicRe = regexp.MustCompile(`^[-_A-Za-z0-9]{1,64}$`)
+	aliasRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`)
+)
 
-func handlePutConfig(store *ConfigStore) http.HandlerFunc {
+func validateHosts(hosts []HostConfig) ([]HostConfig, error) {
+	seen := map[string]bool{}
+	out := make([]HostConfig, 0, len(hosts))
+	for _, h := range hosts {
+		h.Alias = strings.TrimSpace(h.Alias)
+		h.Host = strings.TrimSpace(h.Host)
+		h.User = strings.TrimSpace(h.User)
+		h.KeyPath = strings.TrimSpace(h.KeyPath)
+		if h.Alias == localHostAlias {
+			return nil, errors.New(`alias "local" is reserved`)
+		}
+		if !aliasRe.MatchString(h.Alias) {
+			return nil, fmt.Errorf("invalid alias %q: use lowercase letters, digits, - and _", h.Alias)
+		}
+		if seen[h.Alias] {
+			return nil, fmt.Errorf("duplicate alias %q", h.Alias)
+		}
+		seen[h.Alias] = true
+		if h.Host == "" || strings.ContainsAny(h.Host, " /") {
+			return nil, fmt.Errorf("invalid host address for %q", h.Alias)
+		}
+		if h.User == "" {
+			return nil, fmt.Errorf("user is required for %q", h.Alias)
+		}
+		if h.Port < 0 || h.Port > 65535 {
+			return nil, fmt.Errorf("invalid port for %q", h.Alias)
+		}
+		out = append(out, h)
+	}
+	return out, nil
+}
+
+func handlePutConfig(store *ConfigStore, hosts *HostManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var cfg Config
 		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
@@ -163,11 +200,38 @@ func handlePutConfig(store *ConfigStore) http.HandlerFunc {
 		if cfg.Ignore == nil {
 			cfg.Ignore = []string{}
 		}
+		validHosts, err := validateHosts(cfg.Hosts)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		cfg.Hosts = validHosts
 		if err := store.Set(cfg); err != nil {
 			writeError(w, http.StatusInternalServerError, "save failed: "+err.Error())
 			return
 		}
+		hosts.Reload()
 		writeJSON(w, http.StatusOK, store.Get())
+	}
+}
+
+func handleTestHost(hosts *HostManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var hc HostConfig
+		if err := json.NewDecoder(r.Body).Decode(&hc); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			return
+		}
+		if _, err := validateHosts([]HostConfig{hc}); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		n, err := hosts.TestHost(r.Context(), hc)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "containers": n})
 	}
 }
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { AddHostDialog } from "@/components/add-host-dialog"
 import { AppSidebar, type FleetCounts } from "@/components/app-sidebar"
 import { ContainersView } from "@/components/containers-view"
 import { NotificationsView } from "@/components/notifications-view"
@@ -9,7 +10,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
-import { fetchContainers, type Container } from "@/lib/api"
+import {
+  fetchContainers,
+  type Container,
+  type HostStatus,
+} from "@/lib/api"
 
 export type View = "containers" | "notifications"
 
@@ -24,18 +29,24 @@ function viewFromHash(): View {
   return window.location.hash === "#notifications" ? "notifications" : "containers"
 }
 
+const LOCAL_ONLY: HostStatus[] = [{ alias: "local", ok: true }]
+
 export default function App() {
   const [view, setView] = useState<View>(viewFromHash)
   const [containers, setContainers] = useState<Container[] | null>(null)
-  const [daemonError, setDaemonError] = useState<string | null>(null)
+  const [hosts, setHosts] = useState<HostStatus[]>(LOCAL_ONLY)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [selectedHost, setSelectedHost] = useState("all")
+  const [addHostOpen, setAddHostOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
-      const list = await fetchContainers()
-      setContainers(list)
-      setDaemonError(null)
+      const res = await fetchContainers()
+      setContainers(res.containers)
+      setHosts(res.hosts.length ? res.hosts : LOCAL_ONLY)
+      setApiError(null)
     } catch (e) {
-      setDaemonError(e instanceof Error ? e.message : String(e))
+      setApiError(e instanceof Error ? e.message : String(e))
     }
   }, [])
 
@@ -56,7 +67,14 @@ export default function App() {
     setView(v)
   }, [])
 
-  const counts: FleetCounts = useMemo(() => {
+  // Keep the filter valid when a host is removed.
+  useEffect(() => {
+    if (selectedHost !== "all" && !hosts.some((h) => h.alias === selectedHost)) {
+      setSelectedHost("all")
+    }
+  }, [hosts, selectedHost])
+
+  const allCounts: FleetCounts = useMemo(() => {
     const list = containers ?? []
     return {
       running: list.filter((c) => c.state === "running").length,
@@ -66,29 +84,73 @@ export default function App() {
     }
   }, [containers])
 
-  const online = daemonError === null
+  const visibleContainers = useMemo(() => {
+    if (containers === null) return null
+    if (selectedHost === "all") return containers
+    return containers.filter((c) => c.host === selectedHost)
+  }, [containers, selectedHost])
+
+  const visibleCounts: FleetCounts = useMemo(() => {
+    const list = visibleContainers ?? []
+    return {
+      running: list.filter((c) => c.state === "running").length,
+      unhealthy: list.filter((c) => c.health === "unhealthy").length,
+      stopped: list.filter((c) => c.state !== "running").length,
+      total: list.length,
+    }
+  }, [visibleContainers])
+
+  const apiOnline = apiError === null
+  const visibleHosts =
+    selectedHost === "all" ? hosts : hosts.filter((h) => h.alias === selectedHost)
 
   return (
     <SidebarProvider>
-      <AppSidebar view={view} onNavigate={navigate} counts={counts} online={online} />
+      <AppSidebar
+        view={view}
+        onNavigate={navigate}
+        counts={allCounts}
+        apiOnline={apiOnline}
+        hosts={hosts}
+        selectedHost={selectedHost}
+        onSelectHost={setSelectedHost}
+        onAddHost={() => setAddHostOpen(true)}
+        onHostsChanged={refresh}
+      />
       <SidebarInset>
         <header className="flex h-14 flex-none items-center gap-3 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="!h-5" />
           <h1 className="text-sm font-semibold tracking-tight">{VIEW_TITLES[view]}</h1>
+          {view === "containers" && selectedHost !== "all" && (
+            <span className="rounded-md border bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+              {selectedHost}
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            <span className={cn("led", online ? "text-ok" : "text-alert led-pulse")} />
-            {online ? "live · 5s poll" : "daemon offline"}
+            <span className={cn("led", apiOnline ? "text-ok" : "text-alert led-pulse")} />
+            {apiOnline ? "live · 5s poll" : "daemon offline"}
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {view === "containers" ? (
-            <ContainersView containers={containers} counts={counts} error={daemonError} />
+            <ContainersView
+              containers={visibleContainers}
+              counts={visibleCounts}
+              hosts={visibleHosts}
+              showHostColumn={hosts.length > 1 && selectedHost === "all"}
+              error={apiError}
+            />
           ) : (
             <NotificationsView />
           )}
         </main>
       </SidebarInset>
+      <AddHostDialog
+        open={addHostOpen}
+        onOpenChange={setAddHostOpen}
+        onAdded={refresh}
+      />
     </SidebarProvider>
   )
 }

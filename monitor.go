@@ -34,6 +34,7 @@ type containerState struct {
 // handlers: the Docker events stream (primary) and a periodic reconcile poll
 // (safety net for missed events while reconnecting).
 type Monitor struct {
+	host   string // host alias; "local" is the daemon dockwatch runs on
 	docker *DockerClient
 	store  *ConfigStore
 	notify *Notifier
@@ -44,16 +45,28 @@ type Monitor struct {
 	selfHost     string // container hostname == short container ID when dockerized
 }
 
-func NewMonitor(docker *DockerClient, store *ConfigStore, notify *Notifier) *Monitor {
-	host, _ := os.Hostname()
-	return &Monitor{
+func NewMonitor(host string, docker *DockerClient, store *ConfigStore, notify *Notifier) *Monitor {
+	m := &Monitor{
+		host:         host,
 		docker:       docker,
 		store:        store,
 		notify:       notify,
 		states:       map[string]*containerState{},
 		lastNotified: map[string]time.Time{},
-		selfHost:     host,
 	}
+	if host == localHostAlias {
+		m.selfHost, _ = os.Hostname()
+	}
+	return m
+}
+
+// subject names a container in notification messages, qualified with the
+// host alias for remote daemons.
+func (m *Monitor) subject(name string) string {
+	if m.host == localHostAlias {
+		return name
+	}
+	return name + " on " + m.host
 }
 
 func (m *Monitor) Run(ctx context.Context) {
@@ -73,7 +86,7 @@ func (m *Monitor) eventLoop(ctx context.Context) {
 		if time.Since(connectedAt) > time.Minute {
 			backoff = time.Second
 		}
-		log.Printf("docker event stream lost: %v (reconnecting in %s)", err, backoff)
+		log.Printf("[%s] docker event stream lost: %v (reconnecting in %s)", m.host, err, backoff)
 		select {
 		case <-time.After(backoff):
 		case <-ctx.Done():
@@ -170,12 +183,12 @@ func (m *Monitor) onHealth(id, name, image, status string) {
 
 	if notifyUnhealthy {
 		m.send(id, name, "unhealthy",
-			"Container unhealthy", fmt.Sprintf("%s is unhealthy (image: %s)", name, image),
+			"Container unhealthy", fmt.Sprintf("%s is unhealthy (image: %s)", m.subject(name), image),
 			"urgent", "rotating_light")
 	}
 	if notifyRecovered {
 		m.send(id, name, "recovered",
-			"Container recovered", fmt.Sprintf("%s is healthy again", name),
+			"Container recovered", fmt.Sprintf("%s is healthy again", m.subject(name)),
 			"default", "white_check_mark")
 	}
 }
@@ -195,7 +208,7 @@ func (m *Monitor) onDie(id, name, image string, exitCode int) {
 
 	if crashed {
 		m.send(id, name, "down",
-			"Container down", fmt.Sprintf("%s exited with code %d (image: %s)", name, exitCode, image),
+			"Container down", fmt.Sprintf("%s exited with code %d (image: %s)", m.subject(name), exitCode, image),
 			"high", "skull")
 	}
 }
@@ -224,7 +237,7 @@ func (m *Monitor) onStart(id, name, image string) {
 		m.mu.Unlock()
 		if recovered {
 			m.send(id, name, "recovered",
-				"Container recovered", fmt.Sprintf("%s is back up", name),
+				"Container recovered", fmt.Sprintf("%s is back up", m.subject(name)),
 				"default", "white_check_mark")
 		}
 	})
@@ -237,7 +250,7 @@ func (m *Monitor) reconcile(ctx context.Context, seed bool) {
 	defer cancel()
 	list, err := m.docker.ListContainers(listCtx)
 	if err != nil {
-		log.Printf("reconcile: %v", err)
+		log.Printf("[%s] reconcile: %v", m.host, err)
 		return
 	}
 
@@ -316,10 +329,10 @@ func (m *Monitor) send(id, name, kind, title, message, priority, tags string) {
 	m.lastNotified[key] = time.Now()
 	m.mu.Unlock()
 
-	log.Printf("notify [%s] %s: %s", kind, name, message)
+	log.Printf("[%s] notify [%s] %s: %s", m.host, kind, name, message)
 	go func() {
 		if err := m.notify.Send(title, message, priority, tags); err != nil {
-			log.Printf("notify [%s] %s failed: %v", kind, name, err)
+			log.Printf("[%s] notify [%s] %s failed: %v", m.host, kind, name, err)
 		}
 	}()
 }

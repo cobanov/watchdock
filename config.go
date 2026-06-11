@@ -9,13 +9,23 @@ import (
 )
 
 type Config struct {
-	NtfyServer      string   `json:"ntfyServer"`
-	NtfyTopic       string   `json:"ntfyTopic"`
-	NtfyToken       string   `json:"ntfyToken"`
-	NotifyUnhealthy bool     `json:"notifyUnhealthy"`
-	NotifyDown      bool     `json:"notifyDown"`
-	NotifyRecovered bool     `json:"notifyRecovered"`
-	Ignore          []string `json:"ignore"`
+	NtfyServer      string       `json:"ntfyServer"`
+	NtfyTopic       string       `json:"ntfyTopic"`
+	NtfyToken       string       `json:"ntfyToken"`
+	NotifyUnhealthy bool         `json:"notifyUnhealthy"`
+	NotifyDown      bool         `json:"notifyDown"`
+	NotifyRecovered bool         `json:"notifyRecovered"`
+	Ignore          []string     `json:"ignore"`
+	Hosts           []HostConfig `json:"hosts"`
+}
+
+// HostConfig describes a remote Docker daemon reached over SSH.
+type HostConfig struct {
+	Alias   string `json:"alias"`
+	Host    string `json:"host"`
+	User    string `json:"user"`
+	Port    int    `json:"port,omitempty"`    // 0 means 22
+	KeyPath string `json:"keyPath,omitempty"` // empty: default keys in /ssh
 }
 
 func defaultConfig() Config {
@@ -25,6 +35,7 @@ func defaultConfig() Config {
 		NotifyDown:      true,
 		NotifyRecovered: true,
 		Ignore:          []string{},
+		Hosts:           []HostConfig{},
 	}
 }
 
@@ -50,6 +61,9 @@ func NewConfigStore(path string) (*ConfigStore, error) {
 	if s.cfg.Ignore == nil {
 		s.cfg.Ignore = []string{}
 	}
+	if s.cfg.Hosts == nil {
+		s.cfg.Hosts = []HostConfig{}
+	}
 	return s, nil
 }
 
@@ -58,6 +72,7 @@ func (s *ConfigStore) Get() Config {
 	defer s.mu.RUnlock()
 	cfg := s.cfg
 	cfg.Ignore = append([]string{}, s.cfg.Ignore...)
+	cfg.Hosts = append([]HostConfig{}, s.cfg.Hosts...)
 	return cfg
 }
 

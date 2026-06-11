@@ -18,6 +18,7 @@ import {
   statusTextClass,
   uiStatus,
   type Container,
+  type HostStatus,
   type StatusKind,
 } from "@/lib/api"
 import type { FleetCounts } from "@/components/app-sidebar"
@@ -25,6 +26,8 @@ import type { FleetCounts } from "@/components/app-sidebar"
 interface ContainersViewProps {
   containers: Container[] | null
   counts: FleetCounts
+  hosts: HostStatus[]
+  showHostColumn: boolean
   error: string | null
 }
 
@@ -67,8 +70,15 @@ function StatusCell({ kind, label }: { kind: StatusKind; label: string }) {
   )
 }
 
-export function ContainersView({ containers, counts, error }: ContainersViewProps) {
+export function ContainersView({
+  containers,
+  counts,
+  hosts,
+  showHostColumn,
+  error,
+}: ContainersViewProps) {
   const [filter, setFilter] = useState("")
+  const offlineHosts = hosts.filter((h) => !h.ok)
 
   const filtered = useMemo(() => {
     if (!containers) return []
@@ -81,6 +91,19 @@ export function ContainersView({ containers, counts, error }: ContainersViewProp
 
   return (
     <div className="flex flex-col gap-4">
+      {offlineHosts.map((h) => (
+        <div
+          key={h.alias}
+          className="flex items-center gap-2.5 rounded-lg border border-alert/25 bg-alert/10 px-3.5 py-2.5 text-sm text-alert"
+        >
+          <span className="led led-pulse" />
+          <span className="font-mono text-xs font-semibold">{h.alias}</span>
+          <span className="min-w-0 truncate text-xs" title={h.error}>
+            {h.error}
+          </span>
+        </div>
+      ))}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="running" value={counts.running} />
         <StatTile label="unhealthy" value={counts.unhealthy} alert />
@@ -129,6 +152,11 @@ export function ContainersView({ containers, counts, error }: ContainersViewProp
                 <TableHead className="font-mono text-[10px] uppercase tracking-[0.16em]">
                   name
                 </TableHead>
+                {showHostColumn && (
+                  <TableHead className="font-mono text-[10px] uppercase tracking-[0.16em]">
+                    host
+                  </TableHead>
+                )}
                 <TableHead className="font-mono text-[10px] uppercase tracking-[0.16em]">
                   image
                 </TableHead>
@@ -158,6 +186,11 @@ export function ContainersView({ containers, counts, error }: ContainersViewProp
                         )}
                       </span>
                     </TableCell>
+                    {showHostColumn && (
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {c.host}
+                      </TableCell>
+                    )}
                     <TableCell className="max-w-64 truncate font-mono text-xs text-muted-foreground">
                       {shortImage(c.image)}
                     </TableCell>

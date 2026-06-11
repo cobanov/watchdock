@@ -6,6 +6,21 @@ export interface Container {
   health: string
   status: string
   ignored: boolean
+  host: string
+}
+
+export interface HostConfig {
+  alias: string
+  host: string
+  user: string
+  port?: number
+  keyPath?: string
+}
+
+export interface HostStatus {
+  alias: string
+  ok: boolean
+  error?: string
 }
 
 export interface Config {
@@ -16,6 +31,12 @@ export interface Config {
   notifyDown: boolean
   notifyRecovered: boolean
   ignore: string[]
+  hosts: HostConfig[]
+}
+
+export interface ContainersResponse {
+  hosts: HostStatus[]
+  containers: Container[]
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -27,16 +48,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T
 }
 
-export const fetchContainers = () => request<Container[]>("/containers")
+const jsonInit = (method: string, body: unknown): RequestInit => ({
+  method,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+})
+
+export const fetchContainers = () => request<ContainersResponse>("/containers")
 export const fetchConfig = () => request<Config>("/config")
+export const saveConfig = (cfg: Config) => request<Config>("/config", jsonInit("PUT", cfg))
 export const sendTestNotification = () =>
   request<{ status: string }>("/test", { method: "POST" })
-export const saveConfig = (cfg: Config) =>
-  request<Config>("/config", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cfg),
-  })
+export const testHost = (h: HostConfig) =>
+  request<{ ok: boolean; containers: number }>("/hosts/test", jsonInit("POST", h))
+
+export async function addHost(h: HostConfig): Promise<Config> {
+  const cfg = await fetchConfig()
+  return saveConfig({ ...cfg, hosts: [...cfg.hosts, h] })
+}
+
+export async function removeHost(alias: string): Promise<Config> {
+  const cfg = await fetchConfig()
+  return saveConfig({ ...cfg, hosts: cfg.hosts.filter((h) => h.alias !== alias) })
+}
 
 export type StatusKind = "ok" | "warn" | "alert" | "idle"
 
