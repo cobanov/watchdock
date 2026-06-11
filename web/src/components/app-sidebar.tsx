@@ -40,7 +40,7 @@ interface AppSidebarProps {
 
 function beacon(apiOnline: boolean, counts: FleetCounts, hosts: HostStatus[]) {
   if (!apiOnline) {
-    return { label: "daemon unreachable", className: "text-alert", pulse: true }
+    return { label: "Daemon unreachable", className: "text-alert", pulse: true }
   }
   if (counts.unhealthy > 0) {
     return {
@@ -57,7 +57,7 @@ function beacon(apiOnline: boolean, counts: FleetCounts, hosts: HostStatus[]) {
       pulse: true,
     }
   }
-  return { label: "all systems nominal", className: "text-ok", pulse: false }
+  return { label: "All systems nominal", className: "text-ok", pulse: false }
 }
 
 export function AppSidebar({
@@ -76,7 +76,9 @@ export function AppSidebar({
   const handleToggle = async (alias: string, disabled: boolean) => {
     try {
       await setHostDisabled(alias, disabled)
-      toast.success(disabled ? `Monitoring paused for "${alias}"` : `Monitoring resumed for "${alias}"`)
+      toast.success(
+        disabled ? `Monitoring paused for "${alias}"` : `Monitoring resumed for "${alias}"`,
+      )
       onHostsChanged()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
@@ -93,21 +95,15 @@ export function AppSidebar({
           <div className="text-[17px] font-semibold tracking-tight">dockwatch</div>
         </div>
 
-        <div className="mx-2 mt-3 rounded-lg border bg-background px-3 py-2.5">
-          <div className="flex items-center gap-2.5">
-            <span className={cn("led", b.className, b.pulse && "led-pulse")} />
-            <span className="font-mono text-[10.5px] font-medium uppercase tracking-[0.13em]">
-              {b.label}
-            </span>
-          </div>
+        <div className="mx-2 mt-3 flex items-center gap-2.5 rounded-lg border bg-background px-3 py-2.5">
+          <span className={cn("led", b.className, b.pulse && "led-pulse")} />
+          <span className="text-xs font-medium">{b.label}</span>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="font-mono text-[10px] uppercase tracking-[0.18em]">
-            Console
-          </SidebarGroupLabel>
+          <SidebarGroupLabel>Console</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -118,7 +114,7 @@ export function AppSidebar({
                   <Boxes />
                   <span>Containers</span>
                 </SidebarMenuButton>
-                <SidebarMenuBadge className="font-mono text-[10px] text-muted-foreground">
+                <SidebarMenuBadge className="text-muted-foreground">
                   {counts.total}
                 </SidebarMenuBadge>
               </SidebarMenuItem>
@@ -131,7 +127,7 @@ export function AppSidebar({
                   <span>Notifications</span>
                 </SidebarMenuButton>
                 {counts.unhealthy > 0 && (
-                  <SidebarMenuBadge className="font-mono text-[10px] text-alert">
+                  <SidebarMenuBadge className="text-alert">
                     {counts.unhealthy}
                   </SidebarMenuBadge>
                 )}
@@ -141,9 +137,7 @@ export function AppSidebar({
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="font-mono text-[10px] uppercase tracking-[0.18em]">
-            Hosts
-          </SidebarGroupLabel>
+          <SidebarGroupLabel>Hosts</SidebarGroupLabel>
           <SidebarGroupAction title="Add SSH host" onClick={onAddHost}>
             <PlusIcon />
           </SidebarGroupAction>
@@ -169,19 +163,18 @@ export function AppSidebar({
                             : "text-alert led-pulse",
                       )}
                     />
-                    <span
-                      className={cn(
-                        "font-mono text-[13px]",
-                        h.disabled && "text-muted-foreground line-through decoration-border",
-                      )}
-                    >
+                    <span className={cn(h.disabled && "text-muted-foreground")}>
                       {h.alias}
                     </span>
                   </SidebarMenuButton>
                   {h.alias !== "local" && (
                     <SidebarMenuAction
                       showOnHover={!h.disabled}
-                      title={h.disabled ? `Resume monitoring ${h.alias}` : `Pause monitoring ${h.alias}`}
+                      title={
+                        h.disabled
+                          ? `Resume monitoring ${h.alias}`
+                          : `Pause monitoring ${h.alias}`
+                      }
                       onClick={() => handleToggle(h.alias, !h.disabled)}
                     >
                       {h.disabled ? <PlayIcon /> : <PauseIcon />}
@@ -195,10 +188,10 @@ export function AppSidebar({
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center justify-between px-2 pb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        <div className="flex items-center justify-between px-2 pb-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-2">
             <span className={cn("led", apiOnline ? "text-ok" : "text-alert led-pulse")} />
-            {apiOnline ? "docker.sock" : "socket offline"}
+            {apiOnline ? "Connected" : "Offline"}
           </span>
           <span>v0.3</span>
         </div>

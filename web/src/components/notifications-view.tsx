@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
-import { Loader2Icon, SendIcon } from "lucide-react"
+import { CheckCircle2Icon, Loader2Icon, SendIcon, TriangleAlertIcon } from "lucide-react"
 import { toast } from "sonner"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -12,8 +14,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { WindowTitle } from "@/components/window-title"
-import { cn } from "@/lib/utils"
 import {
   fetchConfig,
   saveConfig,
@@ -22,44 +22,30 @@ import {
 } from "@/lib/api"
 
 interface RuleProps {
+  id: string
   title: string
   description: string
   priority: string
-  priorityClass: string
   checked: boolean
   onChange: (v: boolean) => void
 }
 
-function Rule({ title, description, priority, priorityClass, checked, onChange }: RuleProps) {
+function Rule({ id, title, description, priority, checked, onChange }: RuleProps) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-md border px-3.5 py-3">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{title}</div>
-        <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>
+    <div className="flex items-center justify-between gap-6 p-4">
+      <div className="min-w-0 space-y-0.5">
+        <Label htmlFor={id} className="text-sm font-medium">
+          {title}
+        </Label>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="flex flex-none items-center gap-3">
-        <span
-          className={cn(
-            "rounded border px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.14em]",
-            priorityClass,
-          )}
-        >
+        <Badge variant="outline" className="text-muted-foreground">
           {priority}
-        </span>
-        <Switch checked={checked} onCheckedChange={onChange} />
+        </Badge>
+        <Switch id={id} checked={checked} onCheckedChange={onChange} />
       </div>
     </div>
-  )
-}
-
-function FieldLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor: string }) {
-  return (
-    <Label
-      htmlFor={htmlFor}
-      className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
-    >
-      {children}
-    </Label>
   )
 }
 
@@ -81,8 +67,8 @@ export function NotificationsView() {
 
   if (cfg === null) {
     return (
-      <div className="flex items-center gap-2 font-mono text-sm text-muted-foreground">
-        <Loader2Icon className="size-4 animate-spin" /> loading configuration…
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2Icon className="size-4 animate-spin" /> Loading configuration…
       </div>
     )
   }
@@ -125,31 +111,32 @@ export function NotificationsView() {
     }
   }
 
+  const serverHost = (cfg.ntfyServer.trim() || "https://ntfy.sh").replace(/^https?:\/\//, "")
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Alerts are pushed to your phone through{" "}
-          <a
-            href="https://ntfy.sh"
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary underline-offset-4 hover:underline"
-          >
-            ntfy
-          </a>
-          . Subscribe to the same topic in the ntfy app.
-        </p>
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Notifications</h2>
+          <p className="text-sm text-muted-foreground">
+            Alerts are pushed to your phone through{" "}
+            <a
+              href="https://ntfy.sh"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              ntfy
+            </a>
+            . Subscribe to the same topic in the ntfy app.
+          </p>
+        </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
-            {testing ? (
-              <Loader2Icon className="animate-spin" />
-            ) : (
-              <SendIcon />
-            )}
+          <Button variant="outline" onClick={handleTest} disabled={testing}>
+            {testing ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
             Send test
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving || !dirty}>
+          <Button onClick={handleSave} disabled={saving || !dirty}>
             {saving && <Loader2Icon className="animate-spin" />}
             Save changes
           </Button>
@@ -157,129 +144,122 @@ export function NotificationsView() {
       </div>
 
       {cfg.ntfyTopic.trim() ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-ok/25 bg-ok/10 px-3.5 py-2.5 text-sm">
-          <span className="font-semibold text-ok">Notifications armed</span>
-          <span className="font-mono text-xs text-ok/80">
-            {(cfg.ntfyServer.trim() || "https://ntfy.sh").replace(/^https?:\/\//, "")}/
-            {cfg.ntfyTopic.trim()}
-          </span>
-        </div>
+        <Alert className="border-ok/30 text-ok [&>svg]:text-ok">
+          <CheckCircle2Icon />
+          <AlertTitle>Notifications armed</AlertTitle>
+          <AlertDescription className="text-ok/80">
+            Publishing to {serverHost}/{cfg.ntfyTopic.trim()}
+          </AlertDescription>
+        </Alert>
       ) : (
-        <div className="flex items-center gap-2.5 rounded-lg border border-warn/30 bg-warn/10 px-3.5 py-2.5 text-sm text-warn">
-          <span className="led text-warn" />
-          No topic configured — notifications are disabled until you set one.
-        </div>
+        <Alert className="border-warn/30 text-warn [&>svg]:text-warn">
+          <TriangleAlertIcon />
+          <AlertTitle>No topic configured</AlertTitle>
+          <AlertDescription className="text-warn/80">
+            Notifications are disabled until you set a topic below.
+          </AlertDescription>
+        </Alert>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <WindowTitle>ntfy endpoint</WindowTitle>
-            </CardTitle>
-            <CardDescription>
-              Defaults to the public ntfy.sh service; any self-hosted server works too.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="grid gap-1.5">
-              <FieldLabel htmlFor="server">server</FieldLabel>
-              <Input
-                id="server"
-                className="font-mono text-sm"
-                placeholder="https://ntfy.sh"
-                value={cfg.ntfyServer}
-                onChange={(e) => patch({ ntfyServer: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <FieldLabel htmlFor="topic">topic</FieldLabel>
-              <Input
-                id="topic"
-                className="font-mono text-sm"
-                placeholder="my-secret-topic-x7q2"
-                value={cfg.ntfyTopic}
-                onChange={(e) => patch({ ntfyTopic: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                Anyone who knows the topic can read it — pick something unguessable.
-              </p>
-            </div>
-            <div className="grid gap-1.5">
-              <FieldLabel htmlFor="token">access token (optional)</FieldLabel>
-              <Input
-                id="token"
-                type="password"
-                autoComplete="off"
-                className="font-mono text-sm"
-                placeholder="tk_…"
-                value={cfg.ntfyToken}
-                onChange={(e) => patch({ ntfyToken: e.target.value })}
-              />
-            </div>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>ntfy endpoint</CardTitle>
+          <CardDescription>
+            Defaults to the public ntfy.sh service; any self-hosted server works too.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="server">Server</Label>
+            <Input
+              id="server"
+              placeholder="https://ntfy.sh"
+              value={cfg.ntfyServer}
+              onChange={(e) => patch({ ntfyServer: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="topic">Topic</Label>
+            <Input
+              id="topic"
+              placeholder="my-secret-topic-x7q2"
+              value={cfg.ntfyTopic}
+              onChange={(e) => patch({ ntfyTopic: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Anyone who knows the topic can read it — pick something unguessable.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="token">Access token</Label>
+            <Input
+              id="token"
+              type="password"
+              autoComplete="off"
+              placeholder="Only needed for protected servers"
+              value={cfg.ntfyToken}
+              onChange={(e) => patch({ ntfyToken: e.target.value })}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <WindowTitle>alert rules</WindowTitle>
-            </CardTitle>
-            <CardDescription>
-              Fires only on state transitions, rate-limited per container.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>Alert rules</CardTitle>
+          <CardDescription>
+            Fires only on state transitions, rate-limited per container.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y rounded-xl border">
             <Rule
-              title="Unhealthy"
+              id="rule-unhealthy"
+              title="Unhealthy containers"
               description="A container's healthcheck starts failing"
-              priority="urgent"
-              priorityClass="border-alert/25 bg-alert/10 text-alert"
+              priority="Urgent"
               checked={cfg.notifyUnhealthy}
               onChange={(v) => patch({ notifyUnhealthy: v })}
             />
             <Rule
-              title="Crashed"
+              id="rule-down"
+              title="Crashed containers"
               description="Died with a non-zero exit code; manual stops are ignored"
-              priority="high"
-              priorityClass="border-warn/25 bg-warn/10 text-warn"
+              priority="High"
               checked={cfg.notifyDown}
               onChange={(v) => patch({ notifyDown: v })}
             />
             <Rule
-              title="Recovered"
+              id="rule-recovered"
+              title="Recoveries"
               description="Back to healthy, or back up after a crash"
-              priority="default"
-              priorityClass="border-ok/25 bg-ok/10 text-ok"
+              priority="Default"
               checked={cfg.notifyRecovered}
               onChange={(v) => patch({ notifyRecovered: v })}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>
-              <WindowTitle>ignore list</WindowTitle>
-            </CardTitle>
-            <CardDescription>
-              Containers matched here never trigger notifications. Comma separated,{" "}
-              <code className="font-mono text-foreground">*</code> wildcards supported.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Input
-              className="font-mono text-sm"
-              placeholder="watchtower, dev-*"
-              value={ignoreText}
-              onChange={(e) => {
-                setIgnoreText(e.target.value)
-                setDirty(true)
-              }}
-            />
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Ignore list</CardTitle>
+          <CardDescription>
+            Containers matched here never trigger notifications. Comma separated,
+            wildcards supported.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Input
+            placeholder="watchtower, dev-*"
+            value={ignoreText}
+            onChange={(e) => {
+              setIgnoreText(e.target.value)
+              setDirty(true)
+            }}
+          />
+        </CardContent>
+      </Card>
     </div>
   )
 }

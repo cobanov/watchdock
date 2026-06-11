@@ -29,14 +29,9 @@ function Field({
   ...input
 }: { id: string; label: string; hint?: string } & React.ComponentProps<typeof Input>) {
   return (
-    <div className="grid gap-1.5">
-      <Label
-        htmlFor={id}
-        className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground"
-      >
-        {label}
-      </Label>
-      <Input id={id} className="font-mono text-sm" {...input} />
+    <div className="grid gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} {...input} />
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
@@ -109,7 +104,7 @@ export function AddHostDialog({ open, onOpenChange, onAdded }: AddHostDialogProp
         <div className="grid gap-4 py-1">
           <Field
             id="host"
-            label="host"
+            label="Host"
             placeholder="server.example.com or 100.64.0.5"
             value={form.host}
             onChange={set("host")}
@@ -117,14 +112,14 @@ export function AddHostDialog({ open, onOpenChange, onAdded }: AddHostDialogProp
           <div className="grid grid-cols-2 gap-3">
             <Field
               id="user"
-              label="user"
+              label="User"
               placeholder="cobanov"
               value={form.user}
               onChange={set("user")}
             />
             <Field
               id="port"
-              label="port"
+              label="Port"
               placeholder="22"
               value={form.port}
               onChange={set("port")}
@@ -132,14 +127,14 @@ export function AddHostDialog({ open, onOpenChange, onAdded }: AddHostDialogProp
           </div>
           <Field
             id="alias"
-            label="alias (optional)"
+            label="Alias (optional)"
             placeholder="defaults to hostname"
             value={form.alias}
             onChange={set("alias")}
           />
           <Field
             id="keyPath"
-            label="ssh key (optional)"
+            label="SSH key (optional)"
             placeholder="auto-detect from /ssh"
             hint="Keys are read from ~/.ssh mounted into the container; ssh-agent is used when available."
             value={form.keyPath}

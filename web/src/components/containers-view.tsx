@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react"
-import { CheckIcon, SearchIcon } from "lucide-react"
+import { SearchIcon, TriangleAlertIcon } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -11,11 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { WindowTitle } from "@/components/window-title"
 import { cn } from "@/lib/utils"
 import {
   shortImage,
-  statusTextClass,
   uiStatus,
   type Container,
   type HostStatus,
@@ -31,7 +38,7 @@ interface ContainersViewProps {
   error: string | null
 }
 
-function StatTile({
+function StatCard({
   label,
   value,
   alert,
@@ -41,32 +48,37 @@ function StatTile({
   alert?: boolean
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "mt-1 text-3xl font-semibold tabular-nums tracking-tight",
-          alert && value > 0 && "text-alert",
-        )}
-      >
-        {value}
-      </div>
-    </div>
+    <Card className="gap-1 py-4">
+      <CardHeader className="px-4">
+        <CardDescription>{label}</CardDescription>
+      </CardHeader>
+      <CardContent className="px-4">
+        <span
+          className={cn(
+            "text-3xl font-semibold tabular-nums tracking-tight",
+            alert && value > 0 && "text-alert",
+          )}
+        >
+          {value}
+        </span>
+      </CardContent>
+    </Card>
   )
 }
 
-function StatusCell({ kind, label }: { kind: StatusKind; label: string }) {
+const dotClass: Record<StatusKind, string> = {
+  ok: "bg-ok",
+  warn: "bg-warn",
+  alert: "bg-alert",
+  idle: "bg-idle",
+}
+
+function StatusBadge({ kind, label }: { kind: StatusKind; label: string }) {
   return (
-    <span className={cn("flex items-center gap-1.5 font-mono text-xs", statusTextClass[kind])}>
-      {kind === "ok" ? (
-        <CheckIcon className="size-3.5" strokeWidth={2.5} />
-      ) : (
-        <span className={cn("led", kind === "alert" && "led-pulse")} />
-      )}
-      {label}
-    </span>
+    <Badge variant="outline" className={cn("gap-1.5", kind === "alert" && "border-alert/40 text-alert")}>
+      <span className={cn("size-1.5 rounded-full", dotClass[kind], kind === "alert" && "animate-pulse")} />
+      {label.charAt(0).toUpperCase() + label.slice(1)}
+    </Badge>
   )
 }
 
@@ -78,7 +90,7 @@ export function ContainersView({
   error,
 }: ContainersViewProps) {
   const [filter, setFilter] = useState("")
-  const offlineHosts = hosts.filter((h) => !h.ok)
+  const offlineHosts = hosts.filter((h) => !h.ok && !h.disabled)
 
   const filtered = useMemo(() => {
     if (!containers) return []
@@ -92,118 +104,105 @@ export function ContainersView({
   return (
     <div className="flex flex-col gap-4">
       {offlineHosts.map((h) => (
-        <div
-          key={h.alias}
-          className="flex items-center gap-2.5 rounded-lg border border-alert/25 bg-alert/10 px-3.5 py-2.5 text-sm text-alert"
-        >
-          <span className="led led-pulse" />
-          <span className="font-mono text-xs font-semibold">{h.alias}</span>
-          <span className="min-w-0 truncate text-xs" title={h.error}>
-            {h.error}
-          </span>
-        </div>
+        <Alert key={h.alias} variant="destructive">
+          <TriangleAlertIcon />
+          <AlertTitle>Host “{h.alias}” is unreachable</AlertTitle>
+          <AlertDescription className="break-all">{h.error}</AlertDescription>
+        </Alert>
       ))}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="running" value={counts.running} />
-        <StatTile label="unhealthy" value={counts.unhealthy} alert />
-        <StatTile label="stopped" value={counts.stopped} />
-        <StatTile label="total" value={counts.total} />
+        <StatCard label="Running" value={counts.running} />
+        <StatCard label="Unhealthy" value={counts.unhealthy} alert />
+        <StatCard label="Stopped" value={counts.stopped} />
+        <StatCard label="Total" value={counts.total} />
       </div>
 
-      <div className="rounded-xl border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <WindowTitle>Fleet</WindowTitle>
-          <div className="relative">
-            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter by name or image"
-              className="h-8 w-60 pl-8 text-xs"
-            />
-          </div>
-        </div>
-
-        {error ? (
-          <div className="flex items-center gap-3 px-4 py-8 font-mono text-sm text-alert">
-            <span className="led led-pulse text-alert" />
-            docker daemon unreachable — {error}
-          </div>
-        ) : containers === null ? (
-          <div className="flex flex-col gap-3 p-4">
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-2/3" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            {containers.length === 0
-              ? "No containers on this daemon."
-              : "Nothing matches the filter."}
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-36 pl-4 font-mono text-[10px] uppercase tracking-[0.16em]">
-                  status
-                </TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-[0.16em]">
-                  name
-                </TableHead>
-                {showHostColumn && (
-                  <TableHead className="font-mono text-[10px] uppercase tracking-[0.16em]">
-                    host
-                  </TableHead>
-                )}
-                <TableHead className="font-mono text-[10px] uppercase tracking-[0.16em]">
-                  image
-                </TableHead>
-                <TableHead className="pr-4 text-right font-mono text-[10px] uppercase tracking-[0.16em]">
-                  uptime
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((c) => {
-                const s = uiStatus(c)
-                return (
-                  <TableRow key={c.id} className={cn(c.ignored && "opacity-45")}>
-                    <TableCell className="pl-4">
-                      <StatusCell kind={s.kind} label={s.label} />
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex items-center gap-2">
-                        <span className="font-mono text-[13px]">{c.name}</span>
-                        {c.ignored && (
-                          <Badge
-                            variant="outline"
-                            className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground"
-                          >
-                            ignored
-                          </Badge>
-                        )}
-                      </span>
-                    </TableCell>
-                    {showHostColumn && (
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {c.host}
+      <Card>
+        <CardHeader>
+          <CardTitle>Fleet</CardTitle>
+          <CardDescription>
+            Every container dockwatch is currently watching.
+          </CardDescription>
+          <CardAction>
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Filter containers…"
+                className="h-9 w-56 pl-8"
+              />
+            </div>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-0">
+          {error ? (
+            <div className="px-6 py-8 text-sm text-alert">
+              Docker daemon unreachable — {error}
+            </div>
+          ) : containers === null ? (
+            <div className="flex flex-col gap-3 px-6 py-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-2/3" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="px-6 py-10 text-center text-sm text-muted-foreground">
+              {containers.length === 0
+                ? "No containers on this daemon."
+                : "Nothing matches the filter."}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-36 pl-6">Status</TableHead>
+                  <TableHead>Name</TableHead>
+                  {showHostColumn && <TableHead>Host</TableHead>}
+                  <TableHead>Image</TableHead>
+                  <TableHead className="pr-6 text-right">Uptime</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((c) => {
+                  const s = uiStatus(c)
+                  return (
+                    <TableRow key={`${c.host}/${c.id}`} className={cn(c.ignored && "opacity-45")}>
+                      <TableCell className="pl-6">
+                        <StatusBadge kind={s.kind} label={s.label} />
                       </TableCell>
-                    )}
-                    <TableCell className="max-w-64 truncate font-mono text-xs text-muted-foreground">
-                      {shortImage(c.image)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap pr-4 text-right text-xs text-muted-foreground">
-                      {c.status}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+                      <TableCell>
+                        <span className="flex items-center gap-2">
+                          <span className="font-mono text-[13px] font-medium">
+                            {c.name}
+                          </span>
+                          {c.ignored && (
+                            <Badge variant="secondary" className="text-muted-foreground">
+                              Ignored
+                            </Badge>
+                          )}
+                        </span>
+                      </TableCell>
+                      {showHostColumn && (
+                        <TableCell>
+                          <Badge variant="secondary">{c.host}</Badge>
+                        </TableCell>
+                      )}
+                      <TableCell className="max-w-64 truncate font-mono text-xs text-muted-foreground">
+                        {shortImage(c.image)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap pr-6 text-right text-xs text-muted-foreground">
+                        {c.status}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AddHostDialog } from "@/components/add-host-dialog"
 import { AppSidebar, type FleetCounts } from "@/components/app-sidebar"
+import { Badge } from "@/components/ui/badge"
 import { ContainersView } from "@/components/containers-view"
 import { NotificationsView } from "@/components/notifications-view"
 import { Separator } from "@/components/ui/separator"
@@ -123,13 +124,11 @@ export default function App() {
           <Separator orientation="vertical" className="!h-5" />
           <h1 className="text-sm font-semibold tracking-tight">{VIEW_TITLES[view]}</h1>
           {view === "containers" && selectedHost !== "all" && (
-            <span className="rounded-md border bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-              {selectedHost}
-            </span>
+            <Badge variant="secondary">{selectedHost}</Badge>
           )}
-          <div className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
             <span className={cn("led", apiOnline ? "text-ok" : "text-alert led-pulse")} />
-            {apiOnline ? "live · 5s poll" : "daemon offline"}
+            {apiOnline ? "Live · 5s" : "Offline"}
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
