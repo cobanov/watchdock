@@ -60,6 +60,22 @@ func NewMonitor(host string, docker *DockerClient, store *ConfigStore, notify *N
 	return m
 }
 
+// Counts summarizes the tracked container states without touching Docker.
+func (m *Monitor) Counts() (running, unhealthy, total int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, st := range m.states {
+		total++
+		if st.running {
+			running++
+		}
+		if st.health == "unhealthy" {
+			unhealthy++
+		}
+	}
+	return running, unhealthy, total
+}
+
 // subject names a container in notification messages, qualified with the
 // host alias for remote daemons.
 func (m *Monitor) subject(name string) string {

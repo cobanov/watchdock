@@ -14,6 +14,7 @@ type hostRuntime struct {
 	cfg       HostConfig
 	client    *DockerClient
 	transport *sshTransport // nil for the local daemon
+	monitor   *Monitor
 	cancel    context.CancelFunc
 }
 
@@ -28,6 +29,9 @@ type HostManager struct {
 
 	mu    sync.Mutex
 	hosts map[string]*hostRuntime
+
+	histMu  sync.Mutex
+	history []HistoryPoint
 }
 
 func NewHostManager(ctx context.Context, socket string, store *ConfigStore, notify *Notifier, hostKeys *tofuKeyStore) *HostManager {
@@ -46,14 +50,15 @@ func (hm *HostManager) Start() {
 	hm.startLocked(HostConfig{Alias: localHostAlias}, NewDockerClient(hm.socket), nil)
 	hm.mu.Unlock()
 	hm.Reload()
+	go hm.historyLoop()
 }
 
 // startLocked registers a runtime and launches its monitor. Caller holds mu.
 func (hm *HostManager) startLocked(cfg HostConfig, client *DockerClient, transport *sshTransport) {
 	ctx, cancel := context.WithCancel(hm.ctx)
-	rt := &hostRuntime{cfg: cfg, client: client, transport: transport, cancel: cancel}
-	hm.hosts[cfg.Alias] = rt
 	monitor := NewMonitor(cfg.Alias, client, hm.store, hm.notify)
+	rt := &hostRuntime{cfg: cfg, client: client, transport: transport, monitor: monitor, cancel: cancel}
+	hm.hosts[cfg.Alias] = rt
 	go monitor.Run(ctx)
 }
 
@@ -177,6 +182,74 @@ func (hm *HostManager) Snapshot(ctx context.Context, cfg Config) ([]hostStatus, 
 		containers = append(containers, res.containers...)
 	}
 	return statuses, containers
+}
+
+// HistoryPoint is one sample of aggregate container counts across all hosts.
+type HistoryPoint struct {
+	T         int64 `json:"t"` // unix seconds
+	Running   int   `json:"running"`
+	Unhealthy int   `json:"unhealthy"`
+	Stopped   int   `json:"stopped"`
+	Total     int   `json:"total"`
+}
+
+const (
+	historyInterval = time.Minute
+	historyCap      = 24 * 60 // 24 hours of one-minute samples
+)
+
+// historyLoop samples aggregate counts from the monitors' in-memory state —
+// no extra Docker calls — once a minute into a ring buffer.
+func (hm *HostManager) historyLoop() {
+	// Give the initial reconciles a moment to populate state.
+	select {
+	case <-time.After(10 * time.Second):
+	case <-hm.ctx.Done():
+		return
+	}
+	hm.sampleHistory()
+	t := time.NewTicker(historyInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			hm.sampleHistory()
+		case <-hm.ctx.Done():
+			return
+		}
+	}
+}
+
+func (hm *HostManager) sampleHistory() {
+	var running, unhealthy, total int
+	hm.mu.Lock()
+	for _, rt := range hm.hosts {
+		r, u, t := rt.monitor.Counts()
+		running += r
+		unhealthy += u
+		total += t
+	}
+	hm.mu.Unlock()
+
+	p := HistoryPoint{
+		T:         time.Now().Unix(),
+		Running:   running,
+		Unhealthy: unhealthy,
+		Stopped:   total - running,
+		Total:     total,
+	}
+	hm.histMu.Lock()
+	hm.history = append(hm.history, p)
+	if len(hm.history) > historyCap {
+		hm.history = hm.history[len(hm.history)-historyCap:]
+	}
+	hm.histMu.Unlock()
+}
+
+func (hm *HostManager) History() []HistoryPoint {
+	hm.histMu.Lock()
+	defer hm.histMu.Unlock()
+	return append([]HistoryPoint{}, hm.history...)
 }
 
 // TestHost opens a one-off SSH connection and pings the remote Docker daemon.

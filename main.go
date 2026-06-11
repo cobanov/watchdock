@@ -64,6 +64,9 @@ func main() {
 	mux.HandleFunc("GET /api/config", handleGetConfig(store))
 	mux.HandleFunc("PUT /api/config", handlePutConfig(store, hosts))
 	mux.HandleFunc("POST /api/hosts/test", handleTestHost(hosts))
+	mux.HandleFunc("GET /api/history", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, hosts.History())
+	})
 	mux.HandleFunc("POST /api/test", handleTest(notifier))
 
 	srv := &http.Server{Addr: ":" + port, Handler: mux}

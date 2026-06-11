@@ -19,11 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { FleetChart } from "@/components/fleet-chart"
+import { SectionCards } from "@/components/section-cards"
 import { cn } from "@/lib/utils"
 import {
   shortImage,
   uiStatus,
   type Container,
+  type HistoryPoint,
   type HostStatus,
   type StatusKind,
 } from "@/lib/api"
@@ -33,6 +36,8 @@ interface ContainersViewProps {
   containers: Container[] | null
   counts: FleetCounts
   hosts: HostStatus[]
+  history: HistoryPoint[]
+  aggregate: boolean
   error: string | null
 }
 
@@ -175,7 +180,14 @@ function HostCard({
   )
 }
 
-export function ContainersView({ containers, counts, hosts, error }: ContainersViewProps) {
+export function ContainersView({
+  containers,
+  counts,
+  hosts,
+  history,
+  aggregate,
+  error,
+}: ContainersViewProps) {
   const [filter, setFilter] = useState("")
   const offlineHosts = hosts.filter((h) => !h.ok && !h.disabled)
   const query = filter.trim().toLowerCase()
@@ -198,12 +210,19 @@ export function ContainersView({ containers, counts, hosts, error }: ContainersV
         </Alert>
       ))}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Running" value={counts.running} />
-        <StatCard label="Unhealthy" value={counts.unhealthy} alert />
-        <StatCard label="Stopped" value={counts.stopped} />
-        <StatCard label="Total" value={counts.total} />
-      </div>
+      {aggregate ? (
+        <>
+          <SectionCards counts={counts} history={history} hostCount={hosts.length} />
+          <FleetChart history={history} />
+        </>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard label="Running" value={counts.running} />
+          <StatCard label="Unhealthy" value={counts.unhealthy} alert />
+          <StatCard label="Stopped" value={counts.stopped} />
+          <StatCard label="Total" value={counts.total} />
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">

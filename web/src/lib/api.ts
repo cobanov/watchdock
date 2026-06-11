@@ -41,6 +41,14 @@ export interface ContainersResponse {
   containers: Container[]
 }
 
+export interface HistoryPoint {
+  t: number // unix seconds
+  running: number
+  unhealthy: number
+  stopped: number
+  total: number
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, init)
   const body = await res.json().catch(() => ({}))
@@ -57,6 +65,7 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
 })
 
 export const fetchContainers = () => request<ContainersResponse>("/containers")
+export const fetchHistory = () => request<HistoryPoint[]>("/history")
 export const fetchConfig = () => request<Config>("/config")
 export const saveConfig = (cfg: Config) => request<Config>("/config", jsonInit("PUT", cfg))
 export const sendTestNotification = () =>

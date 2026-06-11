@@ -12,7 +12,9 @@ import {
 import { cn } from "@/lib/utils"
 import {
   fetchContainers,
+  fetchHistory,
   type Container,
+  type HistoryPoint,
   type HostStatus,
 } from "@/lib/api"
 
@@ -38,6 +40,7 @@ export default function App() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [selectedHost, setSelectedHost] = useState("all")
   const [addHostOpen, setAddHostOpen] = useState(false)
+  const [history, setHistory] = useState<HistoryPoint[]>([])
 
   const refresh = useCallback(async () => {
     try {
@@ -55,6 +58,13 @@ export default function App() {
     const timer = setInterval(refresh, POLL_INTERVAL_MS)
     return () => clearInterval(timer)
   }, [refresh])
+
+  useEffect(() => {
+    const load = () => fetchHistory().then(setHistory).catch(() => {})
+    load()
+    const timer = setInterval(load, 60_000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     const onHash = () => setView(viewFromHash())
@@ -127,12 +137,14 @@ export default function App() {
             {apiOnline ? "Live · 5s" : "Offline"}
           </div>
         </header>
-        <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 md:gap-6 md:p-6">
+        <main className="@container/main flex flex-1 flex-col gap-4 overflow-y-auto p-4 md:gap-6 md:p-6">
           {view === "containers" ? (
             <ContainersView
               containers={visibleContainers}
               counts={visibleCounts}
               hosts={visibleHosts}
+              history={history}
+              aggregate={selectedHost === "all"}
               error={apiError}
             />
           ) : (
