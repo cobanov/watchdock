@@ -38,7 +38,7 @@ Notifications fire only on state *transitions* and are rate-limited to one per c
 
 ### Remote hosts
 
-Click **+** next to *Hosts* in the sidebar and enter the machine's address, SSH user and (optionally) port, alias and key path. Requirements on the remote machine: public-key SSH auth and your user able to access `/var/run/docker.sock` (i.e. in the `docker` group).
+On startup, dockwatch imports literal hosts from your mounted SSH config (`/ssh/config` by default) when they have `HostName` and `User` entries. Click **+** next to *Hosts* to import newly-added SSH config entries or manually add a machine's address, SSH user and (optionally) port, alias and key path. Requirements on the remote machine: public-key SSH auth and your user able to access `/var/run/docker.sock` (i.e. in the `docker` group).
 
 Hosts are paused/resumed with the toggle next to their name — pausing keeps the host in the config but stops monitoring. To remove one permanently, delete its entry from `config.json` in the data volume.
 
@@ -52,6 +52,7 @@ Keys are read from `~/.ssh`, mounted read-only into the container (see `docker-c
 | `DOCKER_SOCKET` | `/var/run/docker.sock` |
 | `CONFIG_PATH` | `/data/config.json` |
 | `SSH_KEY_DIR` | `/ssh` |
+| `SSH_CONFIG_PATH` | `/ssh/config` |
 | `KNOWN_HOSTS_PATH` | `/data/known_hosts` |
 
 ## How it works

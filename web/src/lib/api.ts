@@ -72,6 +72,10 @@ export const sendTestNotification = () =>
   request<{ status: string }>("/test", { method: "POST" })
 export const testHost = (h: HostConfig) =>
   request<{ ok: boolean; containers: number }>("/hosts/test", jsonInit("POST", h))
+export const importSSHConfigHosts = () =>
+  request<{ added: number; hosts: HostConfig[] }>("/hosts/import-ssh-config", {
+    method: "POST",
+  })
 
 export async function addHost(h: HostConfig): Promise<Config> {
   const cfg = await fetchConfig()

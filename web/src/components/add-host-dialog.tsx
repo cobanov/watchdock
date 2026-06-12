@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { CheckIcon, Loader2Icon, PlugZapIcon } from "lucide-react"
+import { CheckIcon, DownloadIcon, Loader2Icon, PlugZapIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { addHost, testHost, type HostConfig } from "@/lib/api"
+import { addHost, importSSHConfigHosts, testHost, type HostConfig } from "@/lib/api"
 
 interface AddHostDialogProps {
   open: boolean
@@ -41,6 +41,7 @@ export function AddHostDialog({ open, onOpenChange, onAdded }: AddHostDialogProp
   const [form, setForm] = useState(EMPTY)
   const [testing, setTesting] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
 
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,6 +89,26 @@ export function AddHostDialog({ open, onOpenChange, onAdded }: AddHostDialogProp
     }
   }
 
+  const handleImport = async () => {
+    setImporting(true)
+    try {
+      const res = await importSSHConfigHosts()
+      toast.success(
+        res.added === 0
+          ? "No new SSH hosts found"
+          : `Imported ${res.added} SSH host${res.added === 1 ? "" : "s"}`,
+      )
+      if (res.added > 0) {
+        onOpenChange(false)
+        onAdded()
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const incomplete = !form.host.trim() || !form.user.trim()
 
   return (
@@ -113,7 +134,7 @@ export function AddHostDialog({ open, onOpenChange, onAdded }: AddHostDialogProp
             <Field
               id="user"
               label="User"
-              placeholder="cobanov"
+              placeholder="deploy"
               value={form.user}
               onChange={set("user")}
             />
@@ -157,14 +178,22 @@ export function AddHostDialog({ open, onOpenChange, onAdded }: AddHostDialogProp
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button
+            variant="ghost"
+            onClick={handleImport}
+            disabled={importing || testing || adding}
+          >
+            {importing ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
+            Import SSH config
+          </Button>
+          <Button
             variant="outline"
             onClick={handleTest}
-            disabled={testing || incomplete}
+            disabled={testing || importing || incomplete}
           >
             {testing ? <Loader2Icon className="animate-spin" /> : <PlugZapIcon />}
             Test connection
           </Button>
-          <Button onClick={handleAdd} disabled={adding || incomplete}>
+          <Button onClick={handleAdd} disabled={adding || importing || incomplete}>
             {adding && <Loader2Icon className="animate-spin" />}
             Add host
           </Button>

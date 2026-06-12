@@ -38,6 +38,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
+	if added, err := ImportSSHConfigHosts(store); err != nil {
+		log.Printf("ssh config import skipped: %v", err)
+	} else if added > 0 {
+		log.Printf("imported %d SSH host(s) from %s", added, sshConfigPath)
+	}
 
 	docker := NewDockerClient(socket)
 	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -64,6 +69,7 @@ func main() {
 	mux.HandleFunc("GET /api/config", handleGetConfig(store))
 	mux.HandleFunc("PUT /api/config", handlePutConfig(store, hosts))
 	mux.HandleFunc("POST /api/hosts/test", handleTestHost(hosts))
+	mux.HandleFunc("POST /api/hosts/import-ssh-config", handleImportSSHConfig(store, hosts))
 	mux.HandleFunc("GET /api/history", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, hosts.History())
 	})
@@ -235,6 +241,23 @@ func handleTestHost(hosts *HostManager) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "containers": n})
+	}
+}
+
+func handleImportSSHConfig(store *ConfigStore, hosts *HostManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		added, err := ImportSSHConfigHosts(store)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if added > 0 {
+			hosts.Reload()
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"added": added,
+			"hosts": store.Get().Hosts,
+		})
 	}
 }
 

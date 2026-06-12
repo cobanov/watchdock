@@ -13,10 +13,6 @@ import (
 	"strings"
 )
 
-// apiVersion is pinned low for broad compatibility; the daemon accepts any
-// version it is newer than.
-const apiVersion = "v1.41"
-
 // DockerClient talks to the Docker Engine API over the unix socket using
 // nothing but the standard library.
 type DockerClient struct {
@@ -36,7 +32,7 @@ func NewDockerClient(socketPath string) *DockerClient {
 func NewDockerClientDialer(dial func(ctx context.Context, network, addr string) (net.Conn, error)) *DockerClient {
 	return &DockerClient{
 		http: &http.Client{Transport: &http.Transport{DialContext: dial}},
-		base: "http://docker/" + apiVersion,
+		base: "http://docker",
 	}
 }
 
