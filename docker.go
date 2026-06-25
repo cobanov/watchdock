@@ -11,17 +11,20 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
-// apiVersion is pinned low for broad compatibility; the daemon accepts any
-// version it is newer than.
-const apiVersion = "v1.41"
-
 // DockerClient talks to the Docker Engine API over the unix socket using
-// nothing but the standard library.
+// nothing but the standard library. The API version is negotiated on first
+// use instead of being pinned: new daemons reject versions they consider too
+// old (e.g. "minimum supported API version is 1.44"), old daemons reject
+// versions newer than their own.
 type DockerClient struct {
 	http *http.Client
-	base string
+
+	mu         sync.Mutex
+	negotiated bool
+	prefix     string // e.g. "/v1.44"; empty if the daemon reports no version
 }
 
 func NewDockerClient(socketPath string) *DockerClient {
@@ -36,12 +39,45 @@ func NewDockerClient(socketPath string) *DockerClient {
 func NewDockerClientDialer(dial func(ctx context.Context, network, addr string) (net.Conn, error)) *DockerClient {
 	return &DockerClient{
 		http: &http.Client{Transport: &http.Transport{DialContext: dial}},
-		base: "http://docker/" + apiVersion,
 	}
 }
 
+// apiPrefix returns the negotiated version prefix, performing the handshake
+// on first use. An unversioned /_ping is accepted by every daemon and its
+// Api-Version response header carries the daemon's native version, which is
+// always within the daemon's supported range.
+func (c *DockerClient) apiPrefix(ctx context.Context) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.negotiated {
+		return c.prefix, nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker/_ping", nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", err
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("docker API /_ping: %s", resp.Status)
+	}
+	if v := resp.Header.Get("Api-Version"); v != "" {
+		c.prefix = "/v" + v
+	}
+	c.negotiated = true
+	return c.prefix, nil
+}
+
 func (c *DockerClient) get(ctx context.Context, path string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path, nil)
+	prefix, err := c.apiPrefix(ctx)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker"+prefix+path, nil)
 	if err != nil {
 		return nil, err
 	}

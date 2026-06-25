@@ -15,6 +15,8 @@ type Config struct {
 	NotifyUnhealthy bool         `json:"notifyUnhealthy"`
 	NotifyDown      bool         `json:"notifyDown"`
 	NotifyRecovered bool         `json:"notifyRecovered"`
+	NotifyStopped   bool         `json:"notifyStopped"`
+	NotifyStarted   bool         `json:"notifyStarted"`
 	Ignore          []string     `json:"ignore"`
 	Hosts           []HostConfig `json:"hosts"`
 }
@@ -24,17 +26,21 @@ type HostConfig struct {
 	Alias    string `json:"alias"`
 	Host     string `json:"host"`
 	User     string `json:"user"`
-	Port     int    `json:"port,omitempty"`    // 0 means 22
-	KeyPath  string `json:"keyPath,omitempty"` // empty: default keys in /ssh
+	Port     int    `json:"port,omitempty"`     // 0 means 22
+	KeyPath  string `json:"keyPath,omitempty"`  // empty: default keys in /ssh
+	Password string `json:"password,omitempty"` // optional; stored in plain text, prefer keys
 	Disabled bool   `json:"disabled,omitempty"`
 }
 
 func defaultConfig() Config {
 	return Config{
 		NtfyServer:      "https://ntfy.sh",
+		NtfyTopic:       "dockwatch",
 		NotifyUnhealthy: true,
 		NotifyDown:      true,
 		NotifyRecovered: true,
+		NotifyStopped:   true,
+		NotifyStarted:   true,
 		Ignore:          []string{},
 		Hosts:           []HostConfig{},
 	}

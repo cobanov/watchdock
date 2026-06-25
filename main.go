@@ -54,18 +54,23 @@ func main() {
 	defer stop()
 
 	hostKeys := newTOFUKeyStore(envOr("KNOWN_HOSTS_PATH", "/data/known_hosts"))
-	hosts := NewHostManager(ctx, socket, store, notifier, hostKeys)
+	eventLog := NewEventLog(envOr("EVENTS_PATH", "/data/events.json"))
+	hosts := NewHostManager(ctx, socket, store, notifier, hostKeys, eventLog)
 	hosts.Start()
 
 	mux := http.NewServeMux()
 	web, _ := fs.Sub(webFS, "web/dist")
 	mux.Handle("GET /", http.FileServerFS(web))
 	mux.HandleFunc("GET /api/containers", handleContainers(hosts, store))
+	mux.HandleFunc("GET /api/containers/{alias}", handleHostContainers(hosts, store))
 	mux.HandleFunc("GET /api/config", handleGetConfig(store))
 	mux.HandleFunc("PUT /api/config", handlePutConfig(store, hosts))
 	mux.HandleFunc("POST /api/hosts/test", handleTestHost(hosts))
 	mux.HandleFunc("GET /api/history", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, hosts.History())
+	})
+	mux.HandleFunc("GET /api/events", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, eventLog.Recent(500))
 	})
 	mux.HandleFunc("POST /api/test", handleTest(notifier))
 
@@ -132,6 +137,24 @@ func handleContainers(hosts *HostManager, store *ConfigStore) http.HandlerFunc {
 		})
 		writeJSON(w, http.StatusOK, map[string]any{
 			"hosts":      statuses,
+			"containers": containers,
+		})
+	}
+}
+
+func handleHostContainers(hosts *HostManager, store *ConfigStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cfg := store.Get()
+		status, containers := hosts.SnapshotHost(r.Context(), cfg, r.PathValue("alias"))
+		sort.SliceStable(containers, func(i, j int) bool {
+			ri, rj := containers[i].State == "running", containers[j].State == "running"
+			if ri != rj {
+				return ri
+			}
+			return containers[i].Name < containers[j].Name
+		})
+		writeJSON(w, http.StatusOK, map[string]any{
+			"host":       status,
 			"containers": containers,
 		})
 	}

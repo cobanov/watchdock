@@ -15,6 +15,7 @@ export interface HostConfig {
   user: string
   port?: number
   keyPath?: string
+  password?: string
   disabled?: boolean
 }
 
@@ -32,6 +33,8 @@ export interface Config {
   notifyUnhealthy: boolean
   notifyDown: boolean
   notifyRecovered: boolean
+  notifyStopped: boolean
+  notifyStarted: boolean
   ignore: string[]
   hosts: HostConfig[]
 }
@@ -41,12 +44,27 @@ export interface ContainersResponse {
   containers: Container[]
 }
 
+export interface HostContainersResponse {
+  host: HostStatus
+  containers: Container[]
+}
+
 export interface HistoryPoint {
   t: number // unix seconds
   running: number
   unhealthy: number
   stopped: number
   total: number
+}
+
+export type EventKind = "crashed" | "stopped" | "started" | "unhealthy" | "healthy"
+
+export interface ContainerEvent {
+  t: number // unix seconds
+  host: string
+  container: string
+  kind: EventKind
+  detail?: string
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -65,7 +83,10 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
 })
 
 export const fetchContainers = () => request<ContainersResponse>("/containers")
+export const fetchHostContainers = (alias: string) =>
+  request<HostContainersResponse>(`/containers/${encodeURIComponent(alias)}`)
 export const fetchHistory = () => request<HistoryPoint[]>("/history")
+export const fetchEvents = () => request<ContainerEvent[]>("/events")
 export const fetchConfig = () => request<Config>("/config")
 export const saveConfig = (cfg: Config) => request<Config>("/config", jsonInit("PUT", cfg))
 export const sendTestNotification = () =>
@@ -78,6 +99,19 @@ export async function addHost(h: HostConfig): Promise<Config> {
   return saveConfig({ ...cfg, hosts: [...cfg.hosts, h] })
 }
 
+export async function updateHost(originalAlias: string, h: HostConfig): Promise<Config> {
+  const cfg = await fetchConfig()
+  return saveConfig({
+    ...cfg,
+    hosts: cfg.hosts.map((x) => (x.alias === originalAlias ? h : x)),
+  })
+}
+
+export async function removeHost(alias: string): Promise<Config> {
+  const cfg = await fetchConfig()
+  return saveConfig({ ...cfg, hosts: cfg.hosts.filter((h) => h.alias !== alias) })
+}
+
 export async function setHostDisabled(alias: string, disabled: boolean): Promise<Config> {
   const cfg = await fetchConfig()
   return saveConfig({
@@ -86,7 +120,104 @@ export async function setHostDisabled(alias: string, disabled: boolean): Promise
   })
 }
 
+// --- Host import / export ------------------------------------------------
+
+const HOSTS_EXPORT_VERSION = 1
+
+interface HostsExport {
+  version: number
+  exportedAt: string
+  hosts: HostConfig[]
+}
+
+// Drop the password (a secret; SSH keys live in ~/.ssh, never in this file).
+function publicHost(h: HostConfig): HostConfig {
+  const out: HostConfig = { alias: h.alias, host: h.host, user: h.user }
+  if (h.port) out.port = h.port
+  if (h.keyPath) out.keyPath = h.keyPath
+  if (h.disabled) out.disabled = h.disabled
+  return out
+}
+
+// Download the configured hosts as a portable JSON file (passwords excluded).
+// Returns the number of hosts written.
+export async function exportHosts(): Promise<number> {
+  const cfg = await fetchConfig()
+  const payload: HostsExport = {
+    version: HOSTS_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    hosts: cfg.hosts.map(publicHost),
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = "dockwatch-hosts.json"
+  a.click()
+  URL.revokeObjectURL(url)
+  return cfg.hosts.length
+}
+
+export interface ImportResult {
+  added: number
+  updated: number
+}
+
+// Read an exported file and upsert its hosts by alias into the current config.
+// Accepts either {hosts:[...]} or a bare array; the backend re-validates on save.
+export async function importHostsFromFile(file: File): Promise<ImportResult> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(await file.text())
+  } catch {
+    throw new Error("Not a valid JSON file")
+  }
+  const incoming = parseHosts(parsed)
+  if (incoming.length === 0) throw new Error("No hosts found in file")
+
+  const cfg = await fetchConfig()
+  const byAlias = new Map(cfg.hosts.map((h) => [h.alias, h]))
+  let added = 0
+  let updated = 0
+  for (const h of incoming) {
+    const existing = byAlias.get(h.alias)
+    if (existing) updated++
+    else added++
+    byAlias.set(h.alias, { ...existing, ...h }) // keep existing password on update
+  }
+  await saveConfig({ ...cfg, hosts: [...byAlias.values()] })
+  return { added, updated }
+}
+
+function parseHosts(parsed: unknown): HostConfig[] {
+  const arr = Array.isArray(parsed)
+    ? parsed
+    : (parsed as { hosts?: unknown } | null)?.hosts
+  if (!Array.isArray(arr)) {
+    throw new Error('File must contain a "hosts" array')
+  }
+  return arr.map(toHostConfig)
+}
+
+function toHostConfig(raw: unknown): HostConfig {
+  const h = (raw ?? {}) as Record<string, unknown>
+  const host = String(h.host ?? "").trim()
+  const user = String(h.user ?? "").trim()
+  if (!host || !user) throw new Error("Each host needs a host and user")
+  const alias = String(h.alias ?? "").trim() || host.split(".")[0]
+  const out: HostConfig = { alias, host, user }
+  if (h.port != null && h.port !== "") out.port = Number(h.port)
+  if (typeof h.keyPath === "string" && h.keyPath.trim()) out.keyPath = h.keyPath.trim()
+  if (typeof h.disabled === "boolean") out.disabled = h.disabled
+  return out
+}
+
 export type StatusKind = "ok" | "warn" | "alert" | "idle"
+
+export function hostStatusKind(host: HostStatus): StatusKind {
+  if (host.disabled) return "idle"
+  return host.ok ? "ok" : "alert"
+}
 
 export function uiStatus(c: Container): { kind: StatusKind; label: string } {
   if (c.health === "unhealthy") return { kind: "alert", label: "unhealthy" }

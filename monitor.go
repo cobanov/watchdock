@@ -38,6 +38,7 @@ type Monitor struct {
 	docker *DockerClient
 	store  *ConfigStore
 	notify *Notifier
+	events *EventLog
 
 	mu           sync.Mutex
 	states       map[string]*containerState
@@ -45,12 +46,13 @@ type Monitor struct {
 	selfHost     string // container hostname == short container ID when dockerized
 }
 
-func NewMonitor(host string, docker *DockerClient, store *ConfigStore, notify *Notifier) *Monitor {
+func NewMonitor(host string, docker *DockerClient, store *ConfigStore, notify *Notifier, events *EventLog) *Monitor {
 	m := &Monitor{
 		host:         host,
 		docker:       docker,
 		store:        store,
 		notify:       notify,
+		events:       events,
 		states:       map[string]*containerState{},
 		lastNotified: map[string]time.Time{},
 	}
@@ -198,6 +200,13 @@ func (m *Monitor) onHealth(id, name, image, status string) {
 	m.mu.Unlock()
 
 	if notifyUnhealthy {
+		m.events.Add(m.host, name, "unhealthy", "healthcheck failing")
+	}
+	if notifyRecovered {
+		m.events.Add(m.host, name, "healthy", "healthcheck passing again")
+	}
+
+	if notifyUnhealthy {
 		m.send(id, name, "unhealthy",
 			"Container unhealthy", fmt.Sprintf("%s is unhealthy (image: %s)", m.subject(name), image),
 			"urgent", "rotating_light")
@@ -223,9 +232,19 @@ func (m *Monitor) onDie(id, name, image string, exitCode int) {
 	m.mu.Unlock()
 
 	if crashed {
+		m.events.Add(m.host, name, "crashed", fmt.Sprintf("exited with code %d", exitCode))
+	} else {
+		m.events.Add(m.host, name, "stopped", fmt.Sprintf("exited with code %d", exitCode))
+	}
+
+	if crashed {
 		m.send(id, name, "down",
 			"Container down", fmt.Sprintf("%s exited with code %d (image: %s)", m.subject(name), exitCode, image),
 			"high", "skull")
+	} else {
+		m.send(id, name, "stopped",
+			"Container stopped", fmt.Sprintf("%s exited with code %d (image: %s)", m.subject(name), exitCode, image),
+			"default", "octagonal_sign")
 	}
 }
 
@@ -234,7 +253,14 @@ func (m *Monitor) onStart(id, name, image string) {
 	st := m.ensure(id, name, image)
 	st.running = true
 	pending := st.wasDown
+	name, image = st.name, st.image
 	m.mu.Unlock()
+
+	m.events.Add(m.host, name, "started", "")
+
+	m.send(id, name, "started",
+		"Container started", fmt.Sprintf("%s is up (image: %s)", m.subject(name), image),
+		"default", "arrow_forward")
 
 	if !pending {
 		return
@@ -331,6 +357,8 @@ func (m *Monitor) send(id, name, kind, title, message, priority, tags string) {
 		"unhealthy": cfg.NotifyUnhealthy,
 		"down":      cfg.NotifyDown,
 		"recovered": cfg.NotifyRecovered,
+		"stopped":   cfg.NotifyStopped,
+		"started":   cfg.NotifyStarted,
 	}[kind]
 	if !enabled || isIgnored(cfg.Ignore, name) {
 		return

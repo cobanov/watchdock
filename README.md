@@ -3,8 +3,10 @@
 A tiny self-hosted watchdog for your Docker containers. It runs as a container itself, watches every other container on the machine, and pushes a notification to your phone via [ntfy.sh](https://ntfy.sh) when something goes wrong.
 
 - 🔴 **Unhealthy** — a container's healthcheck starts failing
-- 💀 **Crashed** — a container dies with a non-zero exit code (manual `docker stop` is ignored)
+- 💀 **Crashed** — a container dies with a non-zero exit code (a manual `docker stop` counts as stopped, not crashed)
 - ✅ **Recovered** — a container comes back healthy / back up
+- 🛑 **Stopped** — a container exits cleanly or is stopped by hand
+- ▶️ **Started** — a container starts or restarts
 
 It can also watch **remote machines over SSH**: add a host from the UI and dockwatch monitors its Docker daemon through an SSH-forwarded socket — nothing to install on the remote side.
 
@@ -29,16 +31,16 @@ Everything is configured from the web UI and stored in a Docker volume (`/data/c
 | Setting | Default | Description |
 |---|---|---|
 | ntfy server | `https://ntfy.sh` | Any ntfy server, including self-hosted |
-| Topic | — | The channel your phone subscribes to |
+| Topic | `dockwatch` | The channel your phone subscribes to — change it to something unguessable on the public ntfy.sh |
 | Access token | — | Only needed for auth-protected servers |
-| Unhealthy / Crashed / Recovered | all on | Toggle each notification type |
+| Unhealthy / Crashed / Recovered / Stopped / Started | all on | Toggle each notification type |
 | Ignore | — | Comma-separated container names, `*` wildcards supported |
 
 Notifications fire only on state *transitions* and are rate-limited to one per container per type per 5 minutes, so a crash-looping container won't flood your phone.
 
 ### Remote hosts
 
-Click **+** next to *Hosts* in the sidebar and enter the machine's address, SSH user and (optionally) port, alias and key path. Requirements on the remote machine: public-key SSH auth and your user able to access `/var/run/docker.sock` (i.e. in the `docker` group).
+Click **+** next to *Hosts* in the sidebar and enter the machine's address, SSH user and (optionally) port, alias, key path or password. Authentication uses SSH keys / ssh-agent (recommended) or a password — note that passwords are stored in plain text in `config.json`. Your remote user must be able to access `/var/run/docker.sock` (i.e. in the `docker` group).
 
 Hosts are paused/resumed with the toggle next to their name — pausing keeps the host in the config but stops monitoring. To remove one permanently, delete its entry from `config.json` in the data volume.
 
@@ -51,6 +53,7 @@ Keys are read from `~/.ssh`, mounted read-only into the container (see `docker-c
 | `PORT` | `9622` |
 | `DOCKER_SOCKET` | `/var/run/docker.sock` |
 | `CONFIG_PATH` | `/data/config.json` |
+| `EVENTS_PATH` | `/data/events.json` |
 | `SSH_KEY_DIR` | `/ssh` |
 | `KNOWN_HOSTS_PATH` | `/data/known_hosts` |
 

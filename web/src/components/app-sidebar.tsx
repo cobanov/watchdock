@@ -1,5 +1,22 @@
-import { BellRing, Boxes, PlusIcon, RadarIcon } from "lucide-react"
-import { toast } from "sonner"
+import {
+  BellIcon,
+  BookOpenIcon,
+  ContainerIcon,
+  DownloadIcon,
+  LayoutDashboardIcon,
+  PlusIcon,
+  ScrollTextIcon,
+  UploadIcon,
+} from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { HostDot } from "@/components/status-dot"
+import { StatusDot } from "@/components/status-dot"
 import {
   Sidebar,
   SidebarContent,
@@ -13,97 +30,85 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from "@/components/ui/sidebar"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
-import { setHostDisabled, type HostStatus } from "@/lib/api"
-import type { View } from "@/App"
-
-export interface FleetCounts {
-  running: number
-  unhealthy: number
-  stopped: number
-  total: number
-}
+import type { HostView, View } from "@/App"
 
 interface AppSidebarProps {
   view: View
   onNavigate: (view: View) => void
-  counts: FleetCounts
+  hosts: HostView[]
+  containerCount: number
+  unhealthyCount: number
   apiOnline: boolean
-  hosts: HostStatus[]
   selectedHost: string
   onSelectHost: (alias: string) => void
   onAddHost: () => void
-  onHostsChanged: () => void
+  onImportHosts: () => void
+  onExportHosts: () => void
+  onToggleHost: (alias: string, disabled: boolean) => void
 }
 
-function status(apiOnline: boolean, counts: FleetCounts, hosts: HostStatus[]) {
-  if (!apiOnline) {
-    return { label: "Daemon unreachable", className: "text-alert", pulse: true }
-  }
-  if (counts.unhealthy > 0) {
+function fleetStatus(
+  apiOnline: boolean,
+  unhealthyCount: number,
+  hosts: HostView[],
+): { kind: "ok" | "warn" | "alert"; label: string } {
+  if (!apiOnline) return { kind: "alert", label: "Daemon unreachable" }
+  if (unhealthyCount > 0) {
     return {
-      label: `${counts.unhealthy} container${counts.unhealthy > 1 ? "s" : ""} unhealthy`,
-      className: "text-alert",
-      pulse: true,
+      kind: "alert",
+      label: `${unhealthyCount} unhealthy container${unhealthyCount > 1 ? "s" : ""}`,
     }
   }
-  const offline = hosts.filter((h) => !h.ok && !h.disabled)
-  if (offline.length > 0) {
-    return {
-      label: `${offline.length} host${offline.length > 1 ? "s" : ""} offline`,
-      className: "text-warn",
-      pulse: true,
-    }
+  const offline = hosts.filter(
+    (h) => !h.loading && !h.status.ok && !h.status.disabled,
+  ).length
+  if (offline > 0) {
+    return { kind: "warn", label: `${offline} host${offline > 1 ? "s" : ""} offline` }
   }
-  return { label: "All systems nominal", className: "text-ok", pulse: false }
+  if (hosts.some((h) => h.loading)) {
+    return { kind: "warn", label: "Connecting…" }
+  }
+  return { kind: "ok", label: "All systems normal" }
 }
 
 export function AppSidebar({
   view,
   onNavigate,
-  counts,
-  apiOnline,
   hosts,
+  containerCount,
+  unhealthyCount,
+  apiOnline,
   selectedHost,
   onSelectHost,
   onAddHost,
-  onHostsChanged,
+  onImportHosts,
+  onExportHosts,
+  onToggleHost,
 }: AppSidebarProps) {
-  const s = status(apiOnline, counts, hosts)
+  const status = fleetStatus(apiOnline, unhealthyCount, hosts)
 
-  const handleToggle = async (alias: string, disabled: boolean) => {
-    try {
-      await setHostDisabled(alias, disabled)
-      toast.success(
-        disabled ? `Monitoring paused for "${alias}"` : `Monitoring resumed for "${alias}"`,
-      )
-      onHostsChanged()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
-    }
-  }
-
-  const showContainers = (alias: string) => {
+  const showDashboard = (alias: string) => {
     onSelectHost(alias)
-    onNavigate("containers")
+    onNavigate("dashboard")
   }
 
   return (
-    <Sidebar variant="inset">
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" onClick={() => showContainers("all")}>
+            <SidebarMenuButton size="lg" onClick={() => showDashboard("all")}>
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <RadarIcon className="size-4" />
+                <ContainerIcon className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">dockwatch</span>
-                <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                  <span className={cn("led !size-1.5", s.className, s.pulse && "led-pulse")} />
-                  {s.label}
+                <span className="truncate text-xs text-muted-foreground">
+                  Container monitoring
                 </span>
               </div>
             </SidebarMenuButton>
@@ -113,95 +118,128 @@ export function AppSidebar({
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Hosts</SidebarGroupLabel>
-          <SidebarGroupAction title="Add SSH host" onClick={onAddHost}>
-            <PlusIcon />
-          </SidebarGroupAction>
+          <SidebarGroupLabel>Overview</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={view === "containers" && selectedHost === "all"}
-                  onClick={() => showContainers("all")}
+                  tooltip="Dashboard"
+                  isActive={view === "dashboard" && selectedHost === "all"}
+                  onClick={() => showDashboard("all")}
                 >
-                  <Boxes />
-                  <span>All hosts</span>
+                  <LayoutDashboardIcon />
+                  <span>Dashboard</span>
                 </SidebarMenuButton>
                 <SidebarMenuBadge className="text-muted-foreground">
-                  {counts.total}
+                  {containerCount}
                 </SidebarMenuBadge>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Event log"
+                  isActive={view === "events"}
+                  onClick={() => onNavigate("events")}
+                >
+                  <ScrollTextIcon />
+                  <span>Event log</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Notifications"
+                  isActive={view === "notifications"}
+                  onClick={() => onNavigate("notifications")}
+                >
+                  <BellIcon />
+                  <span>Notifications</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Setup guide"
+                  isActive={view === "setup"}
+                  onClick={() => onNavigate("setup")}
+                >
+                  <BookOpenIcon />
+                  <span>Setup guide</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-              {hosts.map((h) => (
+        <SidebarGroup>
+          <SidebarGroupLabel>Hosts</SidebarGroupLabel>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarGroupAction title="Host actions">
+                <PlusIcon />
+                <span className="sr-only">Host actions</span>
+              </SidebarGroupAction>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="right" align="start">
+              <DropdownMenuItem onClick={onAddHost}>
+                <PlusIcon />
+                Add SSH host
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onImportHosts}>
+                <UploadIcon />
+                Import hosts…
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onExportHosts}>
+                <DownloadIcon />
+                Export hosts
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {hosts.map(({ status: h, loading }) => (
                 <SidebarMenuItem key={h.alias}>
                   <SidebarMenuButton
-                    className={cn(h.alias !== "local" && "pr-12")}
-                    isActive={view === "containers" && selectedHost === h.alias}
-                    onClick={() => showContainers(h.alias)}
-                    title={h.disabled ? "Monitoring paused" : h.error}
+                    tooltip={h.alias}
+                    className={cn(h.alias !== "local" && "pr-10")}
+                    isActive={view === "dashboard" && selectedHost === h.alias}
+                    onClick={() => showDashboard(h.alias)}
+                    title={
+                      h.disabled ? "Monitoring paused" : loading ? "Connecting…" : h.error
+                    }
                   >
-                    <span
-                      className={cn(
-                        "led",
-                        h.disabled
-                          ? "text-idle"
-                          : h.ok
-                            ? "text-ok"
-                            : "text-alert led-pulse",
-                      )}
-                    />
-                    <span className={cn(h.disabled && "text-muted-foreground")}>
+                    <HostDot status={h} loading={loading} />
+                    <span className={cn((h.disabled || loading) && "text-muted-foreground")}>
                       {h.alias}
                     </span>
                   </SidebarMenuButton>
                   {h.alias !== "local" && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                      <Switch
-                        size="sm"
-                        checked={!h.disabled}
-                        onCheckedChange={(enabled) => handleToggle(h.alias, !enabled)}
-                        aria-label={`Toggle monitoring for ${h.alias}`}
-                      />
-                    </div>
+                    <Switch
+                      size="sm"
+                      checked={!h.disabled}
+                      onCheckedChange={(enabled) => onToggleHost(h.alias, !enabled)}
+                      aria-label={`Toggle monitoring for ${h.alias}`}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 group-data-[collapsible=icon]:hidden"
+                    />
                   )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Settings</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={view === "notifications"}
-                  onClick={() => onNavigate("notifications")}
-                >
-                  <BellRing />
-                  <span>Notifications</span>
-                </SidebarMenuButton>
-                {counts.unhealthy > 0 && (
-                  <SidebarMenuBadge className="text-alert">
-                    {counts.unhealthy}
-                  </SidebarMenuBadge>
-                )}
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center justify-between px-2 py-1 text-xs text-muted-foreground">
-          <span className="flex items-center gap-2">
-            <span className={cn("led !size-1.5", apiOnline ? "text-ok" : "text-alert led-pulse")} />
-            {apiOnline ? "Connected" : "Offline"}
+        <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+          <StatusDot
+            kind={status.kind}
+            pulse={status.kind !== "ok"}
+            className="!size-1.5"
+          />
+          <span className="truncate group-data-[collapsible=icon]:hidden">
+            {status.label}
           </span>
-          <span>v0.3</span>
         </div>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   )
 }

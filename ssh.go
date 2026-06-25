@@ -69,11 +69,25 @@ func (t *sshTransport) authMethods() ([]ssh.AuthMethod, error) {
 		methods = append(methods, ssh.PublicKeys(signer))
 	}
 
+	if pw := t.cfg.Password; pw != "" {
+		methods = append(methods,
+			ssh.Password(pw),
+			// Some servers only offer keyboard-interactive for passwords.
+			ssh.KeyboardInteractive(func(_, _ string, questions []string, _ []bool) ([]string, error) {
+				answers := make([]string, len(questions))
+				for i := range answers {
+					answers[i] = pw
+				}
+				return answers, nil
+			}),
+		)
+	}
+
 	if len(methods) == 0 {
 		if keyErr != nil {
 			return nil, keyErr
 		}
-		return nil, fmt.Errorf("no usable SSH key in %s and no ssh-agent available", sshKeyDir)
+		return nil, fmt.Errorf("no usable SSH key in %s, no ssh-agent available, and no password set", sshKeyDir)
 	}
 	return methods, nil
 }
@@ -93,11 +107,15 @@ func (t *sshTransport) connectLocked(ctx context.Context) error {
 		User:            t.cfg.User,
 		Auth:            methods,
 		HostKeyCallback: t.hostKeys.callback(),
-		Timeout:         10 * time.Second,
+		Timeout:         6 * time.Second,
 	}
 
+	// Bound the TCP connect so an unreachable host fails fast instead of
+	// hanging on SYN retransmits up to the caller's timeout.
+	dialCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
+	defer cancel()
 	var d net.Dialer
-	raw, err := d.DialContext(ctx, "tcp", addr)
+	raw, err := d.DialContext(dialCtx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("dial %s: %w", addr, err)
 	}

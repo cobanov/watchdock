@@ -25,6 +25,7 @@ type HostManager struct {
 	store    *ConfigStore
 	notify   *Notifier
 	hostKeys *tofuKeyStore
+	events   *EventLog
 	socket   string // local docker socket path
 
 	mu    sync.Mutex
@@ -34,12 +35,13 @@ type HostManager struct {
 	history []HistoryPoint
 }
 
-func NewHostManager(ctx context.Context, socket string, store *ConfigStore, notify *Notifier, hostKeys *tofuKeyStore) *HostManager {
+func NewHostManager(ctx context.Context, socket string, store *ConfigStore, notify *Notifier, hostKeys *tofuKeyStore, events *EventLog) *HostManager {
 	return &HostManager{
 		ctx:      ctx,
 		store:    store,
 		notify:   notify,
 		hostKeys: hostKeys,
+		events:   events,
 		socket:   socket,
 		hosts:    map[string]*hostRuntime{},
 	}
@@ -56,7 +58,7 @@ func (hm *HostManager) Start() {
 // startLocked registers a runtime and launches its monitor. Caller holds mu.
 func (hm *HostManager) startLocked(cfg HostConfig, client *DockerClient, transport *sshTransport) {
 	ctx, cancel := context.WithCancel(hm.ctx)
-	monitor := NewMonitor(cfg.Alias, client, hm.store, hm.notify)
+	monitor := NewMonitor(cfg.Alias, client, hm.store, hm.notify, hm.events)
 	rt := &hostRuntime{cfg: cfg, client: client, transport: transport, monitor: monitor, cancel: cancel}
 	hm.hosts[cfg.Alias] = rt
 	go monitor.Run(ctx)
@@ -182,6 +184,50 @@ func (hm *HostManager) Snapshot(ctx context.Context, cfg Config) ([]hostStatus, 
 		containers = append(containers, res.containers...)
 	}
 	return statuses, containers
+}
+
+// SnapshotHost lists containers for a single host, letting the UI render each
+// host as soon as it responds instead of waiting for the slowest one.
+func (hm *HostManager) SnapshotHost(ctx context.Context, cfg Config, alias string) (hostStatus, []hostedContainer) {
+	if alias != localHostAlias {
+		var found *HostConfig
+		for i := range cfg.Hosts {
+			if cfg.Hosts[i].Alias == alias {
+				found = &cfg.Hosts[i]
+				break
+			}
+		}
+		if found == nil {
+			return hostStatus{Alias: alias, OK: false, Error: "unknown host"}, nil
+		}
+		if found.Disabled {
+			return hostStatus{Alias: alias, OK: true, Disabled: true}, nil
+		}
+	}
+
+	hm.mu.Lock()
+	rt, ok := hm.hosts[alias]
+	hm.mu.Unlock()
+	if !ok {
+		return hostStatus{Alias: alias, OK: false, Error: "host not running"}, nil
+	}
+
+	listCtx, cancel := context.WithTimeout(ctx, 7*time.Second)
+	defer cancel()
+	list, err := rt.client.ListContainers(listCtx)
+	status := hostStatus{Alias: alias, OK: err == nil}
+	if err != nil {
+		status.Error = err.Error()
+		return status, nil
+	}
+	containers := make([]hostedContainer, 0, len(list))
+	for _, c := range list {
+		containers = append(containers, hostedContainer{
+			apiContainer: toAPIContainer(c, cfg),
+			Host:         alias,
+		})
+	}
+	return status, containers
 }
 
 // HistoryPoint is one sample of aggregate container counts across all hosts.

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react"
-import { CheckCircle2Icon, Loader2Icon, SendIcon, TriangleAlertIcon } from "lucide-react"
+import { Loader2Icon, SendIcon } from "lucide-react"
 import { toast } from "sonner"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { StatusDot } from "@/components/status-dot"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import {
   fetchConfig,
@@ -32,15 +34,13 @@ interface RuleProps {
 
 function Rule({ id, title, description, priority, checked, onChange }: RuleProps) {
   return (
-    <div className="flex items-center justify-between gap-6 p-4">
+    <div className="flex items-center justify-between gap-6">
       <div className="min-w-0 space-y-0.5">
-        <Label htmlFor={id} className="text-sm font-medium">
-          {title}
-        </Label>
+        <Label htmlFor={id}>{title}</Label>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="flex flex-none items-center gap-3">
-        <Badge variant="outline" className="text-muted-foreground">
+        <Badge variant="outline" className="hidden text-muted-foreground sm:inline-flex">
           {priority}
         </Badge>
         <Switch id={id} checked={checked} onCheckedChange={onChange} />
@@ -111,23 +111,30 @@ export function NotificationsView() {
     }
   }
 
-  const serverHost = (cfg.ntfyServer.trim() || "https://ntfy.sh").replace(/^https?:\/\//, "")
+  const topicSet = cfg.ntfyTopic.trim().length > 0
+  const serverHost = (cfg.ntfyServer.trim() || "https://ntfy.sh").replace(
+    /^https?:\/\//,
+    "",
+  )
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Alerts are pushed to your phone through{" "}
-          <a
-            href="https://ntfy.sh"
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium text-foreground underline underline-offset-4"
-          >
-            ntfy
-          </a>
-          . Subscribe to the same topic in the ntfy app.
-        </p>
+    <div className="max-w-3xl space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold tracking-tight">Notifications</h2>
+          <p className="text-sm text-muted-foreground">
+            Alerts are pushed to your phone through{" "}
+            <a
+              href="https://ntfy.sh"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              ntfy
+            </a>
+            . Subscribe to the same topic in the ntfy app.
+          </p>
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleTest} disabled={testing}>
             {testing ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
@@ -140,32 +147,22 @@ export function NotificationsView() {
         </div>
       </div>
 
-      {cfg.ntfyTopic.trim() ? (
-        <Alert className="border-ok/30 text-ok [&>svg]:text-ok">
-          <CheckCircle2Icon />
-          <AlertTitle>Notifications armed</AlertTitle>
-          <AlertDescription className="text-ok/80">
-            Publishing to {serverHost}/{cfg.ntfyTopic.trim()}
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <Alert className="border-warn/30 text-warn [&>svg]:text-warn">
-          <TriangleAlertIcon />
-          <AlertTitle>No topic configured</AlertTitle>
-          <AlertDescription className="text-warn/80">
-            Notifications are disabled until you set a topic below.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <Card>
         <CardHeader>
-          <CardTitle>ntfy endpoint</CardTitle>
+          <CardTitle>Endpoint</CardTitle>
           <CardDescription>
-            Defaults to the public ntfy.sh service; any self-hosted server works too.
+            {topicSet
+              ? `Publishing to ${serverHost}/${cfg.ntfyTopic.trim()}`
+              : "Notifications are disabled until you set a topic."}
           </CardDescription>
+          <CardAction>
+            <Badge variant="outline" className="gap-1.5">
+              <StatusDot kind={topicSet ? "ok" : "warn"} className="!size-1.5" />
+              {topicSet ? "Active" : "Not configured"}
+            </Badge>
+          </CardAction>
         </CardHeader>
-        <CardContent className="grid gap-6 sm:grid-cols-2">
+        <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="server">Server</Label>
             <Input
@@ -174,6 +171,9 @@ export function NotificationsView() {
               value={cfg.ntfyServer}
               onChange={(e) => patch({ ntfyServer: e.target.value })}
             />
+            <p className="text-xs text-muted-foreground">
+              Defaults to the public ntfy.sh service; self-hosted works too.
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="topic">Topic</Label>
@@ -208,33 +208,51 @@ export function NotificationsView() {
             Fires only on state transitions, rate-limited per container.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="divide-y rounded-xl border">
-            <Rule
-              id="rule-unhealthy"
-              title="Unhealthy containers"
-              description="A container's healthcheck starts failing"
-              priority="Urgent"
-              checked={cfg.notifyUnhealthy}
-              onChange={(v) => patch({ notifyUnhealthy: v })}
-            />
-            <Rule
-              id="rule-down"
-              title="Crashed containers"
-              description="Died with a non-zero exit code; manual stops are ignored"
-              priority="High"
-              checked={cfg.notifyDown}
-              onChange={(v) => patch({ notifyDown: v })}
-            />
-            <Rule
-              id="rule-recovered"
-              title="Recoveries"
-              description="Back to healthy, or back up after a crash"
-              priority="Default"
-              checked={cfg.notifyRecovered}
-              onChange={(v) => patch({ notifyRecovered: v })}
-            />
-          </div>
+        <CardContent className="space-y-4">
+          <Rule
+            id="rule-unhealthy"
+            title="Unhealthy containers"
+            description="A container's healthcheck starts failing"
+            priority="Urgent"
+            checked={cfg.notifyUnhealthy}
+            onChange={(v) => patch({ notifyUnhealthy: v })}
+          />
+          <Separator />
+          <Rule
+            id="rule-down"
+            title="Crashed containers"
+            description="Died with a non-zero exit code; manual stops are ignored"
+            priority="High"
+            checked={cfg.notifyDown}
+            onChange={(v) => patch({ notifyDown: v })}
+          />
+          <Separator />
+          <Rule
+            id="rule-recovered"
+            title="Recoveries"
+            description="Back to healthy, or back up after a crash"
+            priority="Default"
+            checked={cfg.notifyRecovered}
+            onChange={(v) => patch({ notifyRecovered: v })}
+          />
+          <Separator />
+          <Rule
+            id="rule-stopped"
+            title="Stopped containers"
+            description="Clean exits and manual stops"
+            priority="Default"
+            checked={cfg.notifyStopped}
+            onChange={(v) => patch({ notifyStopped: v })}
+          />
+          <Separator />
+          <Rule
+            id="rule-started"
+            title="Started containers"
+            description="A container starts, including restarts"
+            priority="Default"
+            checked={cfg.notifyStarted}
+            onChange={(v) => patch({ notifyStarted: v })}
+          />
         </CardContent>
       </Card>
 
