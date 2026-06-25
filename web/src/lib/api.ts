@@ -131,6 +131,23 @@ export async function setHostDisabled(alias: string, disabled: boolean): Promise
   })
 }
 
+// Persist a new host order. `aliases` lists the (non-local) hosts in the desired
+// order; any host not listed is kept at the end so nothing is dropped.
+export async function reorderHosts(aliases: string[]): Promise<Config> {
+  const cfg = await fetchConfig()
+  const byAlias = new Map(cfg.hosts.map((h) => [h.alias, h]))
+  const ordered: HostConfig[] = []
+  for (const a of aliases) {
+    const h = byAlias.get(a)
+    if (h) {
+      ordered.push(h)
+      byAlias.delete(a)
+    }
+  }
+  for (const h of byAlias.values()) ordered.push(h) // safety: keep unlisted hosts
+  return saveConfig({ ...cfg, hosts: ordered })
+}
+
 // --- Host import / export ------------------------------------------------
 
 const HOSTS_EXPORT_VERSION = 1

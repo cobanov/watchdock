@@ -19,6 +19,7 @@ import {
   fetchConfig,
   fetchHostContainers,
   importHostsFromFile,
+  reorderHosts,
   setHostDisabled,
   type Container,
   type HostConfig,
@@ -201,6 +202,19 @@ export default function App() {
     }
   }, [])
 
+  const handleReorderHosts = useCallback(
+    async (aliases: string[]) => {
+      setOrder([LOCAL_ALIAS, ...aliases]) // optimistic; refresh re-reads from config
+      try {
+        await reorderHosts(aliases)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : String(e))
+        refresh()
+      }
+    },
+    [refresh],
+  )
+
   const handleImportFile = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
@@ -282,6 +296,7 @@ export default function App() {
         onImportHosts={() => importInputRef.current?.click()}
         onExportHosts={handleExportHosts}
         onToggleHost={toggleHost}
+        onReorderHosts={handleReorderHosts}
       />
       <input
         ref={importInputRef}

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import {
   ActivityIcon,
   BoxesIcon,
+  ChevronDownIcon,
   CircleOffIcon,
   HeartPulseIcon,
   PencilIcon,
@@ -41,6 +42,8 @@ import {
   type StatusKind,
 } from "@/lib/api"
 import type { HostBlock } from "@/App"
+
+const COLLAPSE_STORAGE_KEY = "dockwatch-collapsed-hosts"
 
 interface DashboardViewProps {
   blocks: HostBlock[]
@@ -158,12 +161,16 @@ function HostCard({
   host,
   containers,
   query,
+  collapsed,
+  onToggleCollapse,
   onEditHost,
   onToggleHost,
 }: {
   host: HostStatus
   containers: Container[] | null
   query: string
+  collapsed: boolean
+  onToggleCollapse: () => void
   onEditHost: (alias: string) => void
   onToggleHost: (alias: string, disabled: boolean) => void
 }) {
@@ -196,14 +203,28 @@ function HostCard({
 
   return (
     <Card className="gap-0 py-0">
-      <CardHeader className="border-b py-4">
-        <CardTitle className="flex items-center gap-2">
+      <CardHeader
+        className={cn("py-4", !collapsed && "border-b")}
+        onClick={onToggleCollapse}
+        role="button"
+        aria-expanded={!collapsed}
+      >
+        <CardTitle className="flex cursor-pointer items-center gap-2">
+          <ChevronDownIcon
+            className={cn(
+              "size-4 text-muted-foreground transition-transform",
+              collapsed && "-rotate-90",
+            )}
+          />
           <HostDot status={host} loading={loading} />
           {host.alias}
         </CardTitle>
         <CardDescription>{description}</CardDescription>
         {host.alias !== "local" && (
-          <CardAction className="flex items-center gap-2 self-center">
+          <CardAction
+            className="flex items-center gap-2 self-center"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Button
               variant="ghost"
               size="icon"
@@ -221,26 +242,28 @@ function HostCard({
           </CardAction>
         )}
       </CardHeader>
-      <CardContent className="px-0">
-        {loading ? (
-          <div className="space-y-3 p-4">
-            <Skeleton className="h-7 w-full" />
-            <Skeleton className="h-7 w-full" />
-            <Skeleton className="h-7 w-2/3" />
-          </div>
-        ) : list.length === 0 ? (
-          <p
-            className={cn(
-              "px-4 py-4 text-sm text-muted-foreground",
-              !host.disabled && !host.ok && "break-all text-destructive",
-            )}
-          >
-            {emptyText}
-          </p>
-        ) : (
-          <ContainerTable containers={list} />
-        )}
-      </CardContent>
+      {!collapsed && (
+        <CardContent className="px-0">
+          {loading ? (
+            <div className="space-y-3 p-4">
+              <Skeleton className="h-7 w-full" />
+              <Skeleton className="h-7 w-full" />
+              <Skeleton className="h-7 w-2/3" />
+            </div>
+          ) : list.length === 0 ? (
+            <p
+              className={cn(
+                "px-4 py-4 text-sm text-muted-foreground",
+                !host.disabled && !host.ok && "break-all text-destructive",
+              )}
+            >
+              {emptyText}
+            </p>
+          ) : (
+            <ContainerTable containers={list} />
+          )}
+        </CardContent>
+      )}
     </Card>
   )
 }
@@ -255,6 +278,24 @@ export function DashboardView({
 }: DashboardViewProps) {
   const [filter, setFilter] = useState("")
   const query = filter.trim().toLowerCase()
+
+  // Per-host collapse state, remembered across reloads.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(COLLAPSE_STORAGE_KEY) ?? "[]"))
+    } catch {
+      return new Set()
+    }
+  })
+  const toggleCollapse = (alias: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(alias)) next.delete(alias)
+      else next.add(alias)
+      localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify([...next]))
+      return next
+    })
+  }
   const aggregate = selectedHost === "all"
   const hostCount = blocks.length
 
@@ -347,6 +388,8 @@ export function DashboardView({
           host={b.status}
           containers={b.containers}
           query={query}
+          collapsed={collapsed.has(b.status.alias)}
+          onToggleCollapse={() => toggleCollapse(b.status.alias)}
           onEditHost={onEditHost}
           onToggleHost={onToggleHost}
         />

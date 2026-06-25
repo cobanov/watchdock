@@ -3,11 +3,29 @@ import {
   BookOpenIcon,
   ContainerIcon,
   DownloadIcon,
+  GripVerticalIcon,
   LayoutDashboardIcon,
   PlusIcon,
   ScrollTextIcon,
   UploadIcon,
 } from "lucide-react"
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +67,65 @@ interface AppSidebarProps {
   onImportHosts: () => void
   onExportHosts: () => void
   onToggleHost: (alias: string, disabled: boolean) => void
+  onReorderHosts: (orderedAliases: string[]) => void
+}
+
+// One draggable host row in the sidebar. Drag is restricted to the grip handle
+// so the row stays clickable (select host) and the switch stays usable.
+function SortableHostItem({
+  h,
+  loading,
+  active,
+  onSelect,
+  onToggle,
+}: {
+  h: HostView["status"]
+  loading: boolean
+  active: boolean
+  onSelect: () => void
+  onToggle: (disabled: boolean) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: h.alias })
+  const style = { transform: CSS.Transform.toString(transform), transition }
+
+  return (
+    <SidebarMenuItem
+      ref={setNodeRef}
+      style={style}
+      className={cn(isDragging && "z-10 opacity-80")}
+    >
+      <SidebarMenuButton
+        tooltip={h.alias}
+        className="pr-16"
+        isActive={active}
+        onClick={onSelect}
+        title={h.disabled ? "Monitoring paused" : loading ? "Connecting…" : h.error}
+      >
+        <HostDot status={h} loading={loading} />
+        <span className={cn((h.disabled || loading) && "text-muted-foreground")}>
+          {h.alias}
+        </span>
+      </SidebarMenuButton>
+      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 group-data-[collapsible=icon]:hidden">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="flex size-5 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/40 hover:text-foreground active:cursor-grabbing"
+          aria-label={`Reorder ${h.alias}`}
+        >
+          <GripVerticalIcon className="size-3.5" />
+        </button>
+        <Switch
+          size="sm"
+          checked={!h.disabled}
+          onCheckedChange={(enabled) => onToggle(!enabled)}
+          aria-label={`Toggle monitoring for ${h.alias}`}
+        />
+      </div>
+    </SidebarMenuItem>
+  )
 }
 
 function fleetStatus(
@@ -88,12 +165,32 @@ export function AppSidebar({
   onImportHosts,
   onExportHosts,
   onToggleHost,
+  onReorderHosts,
 }: AppSidebarProps) {
   const status = fleetStatus(apiOnline, unhealthyCount, hosts)
 
   const showDashboard = (alias: string) => {
     onSelectHost(alias)
     onNavigate("dashboard")
+  }
+
+  // "local" is the in-container daemon: pinned at the top, not reorderable.
+  const localView = hosts.find((h) => h.status.alias === "local")
+  const remoteViews = hosts.filter((h) => h.status.alias !== "local")
+  const remoteAliases = remoteViews.map((h) => h.status.alias)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const from = remoteAliases.indexOf(String(active.id))
+    const to = remoteAliases.indexOf(String(over.id))
+    if (from === -1 || to === -1) return
+    onReorderHosts(arrayMove(remoteAliases, from, to))
   }
 
   return (
@@ -195,33 +292,42 @@ export function AppSidebar({
           </DropdownMenu>
           <SidebarGroupContent>
             <SidebarMenu>
-              {hosts.map(({ status: h, loading }) => (
-                <SidebarMenuItem key={h.alias}>
+              {localView && (
+                <SidebarMenuItem>
                   <SidebarMenuButton
-                    tooltip={h.alias}
-                    className={cn(h.alias !== "local" && "pr-10")}
-                    isActive={view === "dashboard" && selectedHost === h.alias}
-                    onClick={() => showDashboard(h.alias)}
-                    title={
-                      h.disabled ? "Monitoring paused" : loading ? "Connecting…" : h.error
-                    }
+                    tooltip="local"
+                    isActive={view === "dashboard" && selectedHost === "local"}
+                    onClick={() => showDashboard("local")}
+                    title={localView.loading ? "Connecting…" : localView.status.error}
                   >
-                    <HostDot status={h} loading={loading} />
-                    <span className={cn((h.disabled || loading) && "text-muted-foreground")}>
-                      {h.alias}
+                    <HostDot status={localView.status} loading={localView.loading} />
+                    <span className={cn(localView.loading && "text-muted-foreground")}>
+                      local
                     </span>
                   </SidebarMenuButton>
-                  {h.alias !== "local" && (
-                    <Switch
-                      size="sm"
-                      checked={!h.disabled}
-                      onCheckedChange={(enabled) => onToggleHost(h.alias, !enabled)}
-                      aria-label={`Toggle monitoring for ${h.alias}`}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 group-data-[collapsible=icon]:hidden"
-                    />
-                  )}
                 </SidebarMenuItem>
-              ))}
+              )}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={remoteAliases}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {remoteViews.map(({ status: h, loading }) => (
+                    <SortableHostItem
+                      key={h.alias}
+                      h={h}
+                      loading={loading}
+                      active={view === "dashboard" && selectedHost === h.alias}
+                      onSelect={() => showDashboard(h.alias)}
+                      onToggle={(disabled) => onToggleHost(h.alias, disabled)}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
