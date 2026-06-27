@@ -1,20 +1,10 @@
 # dockwatch
 
-A tiny self-hosted watchdog for your Docker containers. It runs as a container itself, watches every other container on the machine, and pushes a notification to your phone via [ntfy.sh](https://ntfy.sh) when something goes wrong.
+A tiny self-hosted watchdog for your Docker containers — it watches every container on the machine (and remote ones over SSH) and pings your phone the moment something breaks.
 
-**▶︎ [Try the live demo](https://dockwatch-demo.pages.dev)** — the full dashboard with realistic sample data, no install required.
+**[▶ Live demo](https://dockwatch-demo.pages.dev)** — the real dashboard with sample data, no install.
 
-- 🔴 **Unhealthy** — a container's healthcheck starts failing
-- 💀 **Crashed** — a container dies with a non-zero exit code (a manual `docker stop` counts as stopped, not crashed)
-- ✅ **Recovered** — a container comes back healthy / back up
-- 🛑 **Stopped** — a container exits cleanly or is stopped by hand
-- ▶️ **Started** — a container starts or restarts
-
-It can also watch **remote machines over SSH**: add a host from the UI and dockwatch monitors its Docker daemon through an SSH-forwarded socket — nothing to install on the remote side.
-
-Single static Go binary (only dependency: `golang.org/x/crypto` for SSH), ~11 MB image. The web UI is React + the [Astryx](https://astryx.atmeta.com) design system, embedded into the binary at build time. Works anywhere Docker Desktop or the Docker daemon runs: macOS, Windows (WSL2), Linux.
-
-The dashboard groups containers by host (or status / health / image), surfaces live status as colour-coded badges, and has pages for the event log, ntfy notifications, a setup guide, and SSH host management — all in a collapsible sidebar with light/dark themes.
+![dockwatch dashboard](docs/dashboard.png)
 
 ## Quick start
 
@@ -24,50 +14,26 @@ cd dockwatch
 docker compose up -d --build
 ```
 
-Open **http://localhost:9622**, set an ntfy topic, hit **Save**, then **Send test notification**.
+Open **http://localhost:9622**, pick an ntfy topic, and subscribe to that topic in the [ntfy app](https://ntfy.sh/) on your phone. That's it.
 
-On your phone, install the [ntfy app](https://ntfy.sh/) (iOS/Android) and subscribe to the same topic. That's it — anyone who knows the topic name can read it, so pick something unguessable.
+## What you get
 
-## Live demo
+- **Phone alerts** when a container goes unhealthy, crashes, recovers, stops or starts — fired only on real state changes and rate-limited, so you're never spammed.
+- **One dashboard for every host** — group by host, status, health or image, with live colour-coded states, an event log, and light/dark themes.
+- **Remote hosts over SSH** — add a machine from the UI; nothing to install on the other side.
+- **Zero config files** — everything is set in the UI and saved to a Docker volume.
 
-**Live at [dockwatch-demo.pages.dev](https://dockwatch-demo.pages.dev).**
+Single static Go binary (~11 MB image), React + [Astryx](https://astryx.atmeta.com) UI embedded in. Runs anywhere Docker does: macOS, Windows (WSL2), Linux.
 
-A fully interactive, **backend-free** build of the dashboard ships with realistic in-memory data — click around the grouped table, host filters, detail panel, event log and settings without a Docker daemon. It's a normal static bundle, so it deploys anywhere (Cloudflare Pages, Netlify, GitHub Pages, …):
-
-```bash
-cd web
-npm install
-npm run build:demo        # sets VITE_DEMO=1; emits a static site to web/dist
-```
-
-Deploy `web/dist` as static files. On **Cloudflare Pages** either:
-
-- **Dashboard** — connect this repo, set build command `cd web && npm ci && npm run build:demo` and output directory `web/dist`; or
-- **CLI** — `cd web && npm run build:demo && npx wrangler pages deploy dist --project-name dockwatch-demo`
-
-The demo runs entirely in the browser (a `LIVE DEMO` badge marks it); edits, toggles and saves mutate in-memory state and reset on reload.
-
-## Configuration
-
-Everything is configured from the web UI and stored in a Docker volume (`/data/config.json`):
-
-| Setting | Default | Description |
-|---|---|---|
-| ntfy server | `https://ntfy.sh` | Any ntfy server, including self-hosted |
-| Topic | `dockwatch` | The channel your phone subscribes to — change it to something unguessable on the public ntfy.sh |
-| Access token | — | Only needed for auth-protected servers |
-| Unhealthy / Crashed / Recovered / Stopped / Started | all on | Toggle each notification type |
-| Ignore | — | Comma-separated container names, `*` wildcards supported |
-
-Notifications fire only on state *transitions* and are rate-limited to one per container per type per 5 minutes, so a crash-looping container won't flood your phone.
+<details>
+<summary><b>Remote hosts, environment variables & development</b></summary>
 
 ### Remote hosts
 
-Use the **+** next to *Hosts* in the sidebar — or the **Hosts** page (*Manage hosts*) — to add a machine (its address, SSH user and optionally port, alias, key path or password). The Hosts page also imports hosts from a previously exported file and exports your hosts to `dockwatch-hosts.json` (passwords are never exported). dockwatch also imports literal hosts from your mounted SSH config (`/ssh/config` by default) on startup when they have `HostName` and `User` entries, and the host dialog has an *Import SSH config* button to pull in newly-added entries. Authentication uses SSH keys / ssh-agent (recommended) or a password — note that passwords are stored in plain text in `config.json`. Your remote user must be able to access `/var/run/docker.sock` (i.e. in the `docker` group).
+Add a machine with the **+** next to *Hosts* in the sidebar (or the **Manage hosts** page): its address, SSH user, and optionally a port, alias, key path or password.
 
-Hosts are paused/resumed with the toggle next to their name — pausing keeps the host in the config but stops monitoring. To remove one permanently, delete its entry from `config.json` in the data volume.
-
-Keys are read from `~/.ssh`, mounted read-only into the container (see `docker-compose.yml`). Passphrase-protected keys work through ssh-agent forwarding, which Docker Desktop exposes automatically on macOS/Windows; on Linux, point the `SSH_AUTH_SOCK` mount at your agent socket instead. Host keys are pinned on first use to `/data/known_hosts`.
+- **Auth:** SSH keys / ssh-agent (recommended) or a password (stored in plain text in the config). Keys are read from `~/.ssh`, mounted read-only into the container. The remote user must be able to reach `/var/run/docker.sock` (i.e. in the `docker` group).
+- **Manage:** the toggle next to a host pauses/resumes monitoring. The Hosts page imports/exports hosts as JSON (passwords are never exported), and dockwatch also picks up hosts from your mounted `~/.ssh/config`.
 
 ### Environment variables
 
@@ -81,22 +47,24 @@ Keys are read from `~/.ssh`, mounted read-only into the container (see `docker-c
 | `SSH_CONFIG_PATH` | `/ssh/config` |
 | `KNOWN_HOSTS_PATH` | `/data/known_hosts` |
 
-## How it works
-
-dockwatch subscribes to the Docker events stream over the (read-only) mounted socket and falls back to a 30-second reconcile poll in case the stream drops. The Docker Engine API is called directly with Go's standard library — no SDK, no external dependencies.
-
-## Development
+### Development
 
 ```bash
 # build the UI once (go:embed needs web/dist to exist)
 cd web && npm install && npm run build && cd ..
 
-# run the backend
+# backend
 CONFIG_PATH=./config.json go run .
 
-# UI dev server with hot reload (proxies /api to :9622)
+# UI with hot reload (proxies /api to :9622)
 cd web && npm run dev
 ```
+
+### Static demo build
+
+`cd web && npm run build:demo` emits a backend-free build to `web/dist` (in-memory sample data) that deploys to any static host — Cloudflare Pages, Netlify, GitHub Pages, …
+
+</details>
 
 ## License
 
