@@ -2,6 +2,8 @@
 
 A tiny self-hosted watchdog for your Docker containers. It runs as a container itself, watches every other container on the machine, and pushes a notification to your phone via [ntfy.sh](https://ntfy.sh) when something goes wrong.
 
+**▶︎ [Try the live demo](https://dockwatch-demo.pages.dev)** — the full dashboard with realistic sample data, no install required.
+
 - 🔴 **Unhealthy** — a container's healthcheck starts failing
 - 💀 **Crashed** — a container dies with a non-zero exit code (a manual `docker stop` counts as stopped, not crashed)
 - ✅ **Recovered** — a container comes back healthy / back up
@@ -27,6 +29,8 @@ Open **http://localhost:9622**, set an ntfy topic, hit **Save**, then **Send tes
 On your phone, install the [ntfy app](https://ntfy.sh/) (iOS/Android) and subscribe to the same topic. That's it — anyone who knows the topic name can read it, so pick something unguessable.
 
 ## Live demo
+
+**Live at [dockwatch-demo.pages.dev](https://dockwatch-demo.pages.dev).**
 
 A fully interactive, **backend-free** build of the dashboard ships with realistic in-memory data — click around the grouped table, host filters, detail panel, event log and settings without a Docker daemon. It's a normal static bundle, so it deploys anywhere (Cloudflare Pages, Netlify, GitHub Pages, …):
 
