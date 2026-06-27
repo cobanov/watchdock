@@ -560,6 +560,7 @@ export function ContainerDetailPanel({
       padding={4}
       role="complementary"
       label="Container details"
+      style={{ borderInlineEnd: "var(--border-width) solid var(--color-border-emphasized)" }}
     >
       <VStack gap={4}>
         <HStack gap={2} vAlign="center">
