@@ -247,6 +247,7 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
         <a href="#features">Features</a>
         <a href="#rules">Notifications</a>
         <a href="#quickstart">Quick start</a>
+        <a href="https://dockwatch-demo.pages.dev" target="_blank" rel="noopener">Demo</a>
       </nav>
       <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle color mode" title="Toggle color mode">
         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/></svg>
@@ -269,8 +270,11 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
     <h1>A tiny watchdog for your Docker containers.</h1>
     <p class="lede">dockwatch runs as a single <b>~11 MB container</b>, watches every other container on your machines — <b>local or remote over SSH</b> — and pushes a notification to your phone via <a href="https://ntfy.sh" style="text-decoration:underline;text-underline-offset:3px">ntfy</a> when one crashes, goes unhealthy, or recovers.</p>
     <div class="hero-actions">
-      <a class="btn btn-primary btn-lg" href="#quickstart">Get started</a>
-      <a class="btn btn-outline btn-lg" href="https://github.com/cobanov/dockwatch">View on GitHub</a>
+      <a class="btn btn-primary btn-lg" href="https://dockwatch-demo.pages.dev" target="_blank" rel="noopener">
+        Try the live demo
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+      </a>
+      <a class="btn btn-outline btn-lg" href="#quickstart">Get started</a>
     </div>
     <p class="hero-hint">$ docker compose up -d --build</p>
   </div>
