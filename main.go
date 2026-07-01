@@ -164,17 +164,23 @@ func toAPIContainer(c Container, cfg Config) apiContainer {
 	}
 }
 
+// sortContainers orders containers running-first, then by name — the order both
+// container endpoints present to the UI.
+func sortContainers(containers []hostedContainer) {
+	sort.SliceStable(containers, func(i, j int) bool {
+		ri, rj := containers[i].State == "running", containers[j].State == "running"
+		if ri != rj {
+			return ri
+		}
+		return containers[i].Name < containers[j].Name
+	})
+}
+
 func handleContainers(hosts *HostManager, store *ConfigStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := store.Get()
 		statuses, containers := hosts.Snapshot(r.Context(), cfg)
-		sort.SliceStable(containers, func(i, j int) bool {
-			ri, rj := containers[i].State == "running", containers[j].State == "running"
-			if ri != rj {
-				return ri
-			}
-			return containers[i].Name < containers[j].Name
-		})
+		sortContainers(containers)
 		writeJSON(w, http.StatusOK, containersResponse{Hosts: statuses, Containers: containers})
 	}
 }
@@ -183,13 +189,7 @@ func handleHostContainers(hosts *HostManager, store *ConfigStore) http.HandlerFu
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := store.Get()
 		status, containers := hosts.SnapshotHost(r.Context(), cfg, r.PathValue("alias"))
-		sort.SliceStable(containers, func(i, j int) bool {
-			ri, rj := containers[i].State == "running", containers[j].State == "running"
-			if ri != rj {
-				return ri
-			}
-			return containers[i].Name < containers[j].Name
-		})
+		sortContainers(containers)
 		writeJSON(w, http.StatusOK, hostContainersResponse{Host: status, Containers: containers})
 	}
 }

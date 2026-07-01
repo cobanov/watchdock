@@ -127,47 +127,50 @@ export const importSSHConfigHosts = () =>
         method: "POST",
       })
 
-export async function addHost(h: HostConfig): Promise<Config> {
-  const cfg = await fetchConfig()
-  return saveConfig({ ...cfg, hosts: [...cfg.hosts, h] })
+// Fetch the current config, apply a pure transform, and persist the result.
+// Shared by the host mutators below so each expresses only its own change.
+function mutateConfig(update: (cfg: Config) => Config): Promise<Config> {
+  return fetchConfig().then((cfg) => saveConfig(update(cfg)))
 }
 
-export async function updateHost(originalAlias: string, h: HostConfig): Promise<Config> {
-  const cfg = await fetchConfig()
-  return saveConfig({
+export function addHost(h: HostConfig): Promise<Config> {
+  return mutateConfig((cfg) => ({ ...cfg, hosts: [...cfg.hosts, h] }))
+}
+
+export function updateHost(originalAlias: string, h: HostConfig): Promise<Config> {
+  return mutateConfig((cfg) => ({
     ...cfg,
     hosts: cfg.hosts.map((x) => (x.alias === originalAlias ? h : x)),
-  })
+  }))
 }
 
-export async function removeHost(alias: string): Promise<Config> {
-  const cfg = await fetchConfig()
-  return saveConfig({ ...cfg, hosts: cfg.hosts.filter((h) => h.alias !== alias) })
+export function removeHost(alias: string): Promise<Config> {
+  return mutateConfig((cfg) => ({ ...cfg, hosts: cfg.hosts.filter((h) => h.alias !== alias) }))
 }
 
-export async function setHostDisabled(alias: string, disabled: boolean): Promise<Config> {
-  const cfg = await fetchConfig()
-  return saveConfig({
+export function setHostDisabled(alias: string, disabled: boolean): Promise<Config> {
+  return mutateConfig((cfg) => ({
     ...cfg,
     hosts: cfg.hosts.map((h) => (h.alias === alias ? { ...h, disabled } : h)),
-  })
+  }))
 }
 
 // Persist a new host order. `aliases` lists the (non-local) hosts in the desired
 // order; any host not listed is kept at the end so nothing is dropped.
-export async function reorderHosts(aliases: string[]): Promise<Config> {
-  const cfg = await fetchConfig()
-  const byAlias = new Map(cfg.hosts.map((h) => [h.alias, h]))
-  const ordered: HostConfig[] = []
-  for (const a of aliases) {
-    const h = byAlias.get(a)
-    if (h) {
-      ordered.push(h)
-      byAlias.delete(a)
+export function reorderHosts(aliases: string[]): Promise<Config> {
+  return mutateConfig((cfg) => {
+    const byAlias = new Map(cfg.hosts.map((h) => [h.alias, h]))
+    const ordered: HostConfig[] = []
+    for (const a of aliases) {
+      const h = byAlias.get(a)
+      if (h) {
+        ordered.push(h)
+        byAlias.delete(a)
+      }
     }
-  }
-  for (const h of byAlias.values()) ordered.push(h) // safety: keep unlisted hosts
-  return saveConfig({ ...cfg, hosts: ordered })
+    for (const h of byAlias.values()) ordered.push(h) // safety: keep unlisted hosts
+    return { ...cfg, hosts: ordered }
+  })
 }
 
 // --- Host import / export ------------------------------------------------
