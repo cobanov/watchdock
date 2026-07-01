@@ -251,7 +251,7 @@ function ContainerRow({
       </TableCell>
       <TableCell>
         <HStack gap={3} vAlign="center">
-          <Text type="supporting" color="secondary">
+          <Text type="code" size="sm" color="secondary">
             {container.id.slice(0, 12)}
           </Text>
           <Text type="body" weight="semibold" maxLines={1}>
