@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+// ErrNoTopic is returned when a send is attempted without an ntfy topic set. It
+// is a caller/configuration problem (HTTP 400), distinct from an upstream ntfy
+// failure (HTTP 502), so handlers can map it to the right status code.
+var ErrNoTopic = errors.New("ntfy topic is not configured")
+
 type Notifier struct {
 	store *ConfigStore
 	http  *http.Client
@@ -36,7 +41,7 @@ func (n *Notifier) SendTestTo(server, topic, token string) error {
 func (n *Notifier) send(server, topic, token, title, message, priority, tags string) error {
 	topic = strings.TrimSpace(topic)
 	if topic == "" {
-		return errors.New("ntfy topic is not configured")
+		return ErrNoTopic
 	}
 	server = strings.TrimRight(strings.TrimSpace(server), "/")
 	if server == "" {

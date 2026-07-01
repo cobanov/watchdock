@@ -101,8 +101,42 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 }
 
 func writeError(w http.ResponseWriter, code int, msg string) {
-	writeJSON(w, code, map[string]string{"error": msg})
+	writeJSON(w, code, errorResponse{Error: msg})
 }
+
+// Response contracts. Every handler returns one of these named shapes so the
+// API surface is explicit and mirrors web/src/lib/api.ts (kept in sync by hand).
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
+type containersResponse struct {
+	Hosts      []hostStatus      `json:"hosts"`
+	Containers []hostedContainer `json:"containers"`
+}
+
+type hostContainersResponse struct {
+	Host       hostStatus        `json:"host"`
+	Containers []hostedContainer `json:"containers"`
+}
+
+type testHostResponse struct {
+	OK         bool `json:"ok"`
+	Containers int  `json:"containers"`
+}
+
+type importHostsResponse struct {
+	Added int          `json:"added"`
+	Hosts []HostConfig `json:"hosts"`
+}
+
+type statusResponse struct {
+	Status string `json:"status"`
+}
+
+// maxBodyBytes caps request bodies at a JSON boundary so a malformed or hostile
+// client can't force the server to buffer an unbounded payload.
+const maxBodyBytes = 1 << 20 // 1 MiB
 
 type apiContainer struct {
 	ID      string `json:"id"`
@@ -141,10 +175,7 @@ func handleContainers(hosts *HostManager, store *ConfigStore) http.HandlerFunc {
 			}
 			return containers[i].Name < containers[j].Name
 		})
-		writeJSON(w, http.StatusOK, map[string]any{
-			"hosts":      statuses,
-			"containers": containers,
-		})
+		writeJSON(w, http.StatusOK, containersResponse{Hosts: statuses, Containers: containers})
 	}
 }
 
@@ -159,10 +190,7 @@ func handleHostContainers(hosts *HostManager, store *ConfigStore) http.HandlerFu
 			}
 			return containers[i].Name < containers[j].Name
 		})
-		writeJSON(w, http.StatusOK, map[string]any{
-			"host":       status,
-			"containers": containers,
-		})
+		writeJSON(w, http.StatusOK, hostContainersResponse{Host: status, Containers: containers})
 	}
 }
 
@@ -211,6 +239,7 @@ func validateHosts(hosts []HostConfig) ([]HostConfig, error) {
 
 func handlePutConfig(store *ConfigStore, hosts *HostManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		var cfg Config
 		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
@@ -249,6 +278,7 @@ func handlePutConfig(store *ConfigStore, hosts *HostManager) http.HandlerFunc {
 
 func handleTestHost(hosts *HostManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		var hc HostConfig
 		if err := json.NewDecoder(r.Body).Decode(&hc); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
@@ -263,7 +293,7 @@ func handleTestHost(hosts *HostManager) http.HandlerFunc {
 			writeError(w, http.StatusBadGateway, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "containers": n})
+		writeJSON(w, http.StatusOK, testHostResponse{OK: true, Containers: n})
 	}
 }
 
@@ -277,10 +307,7 @@ func handleImportSSHConfig(store *ConfigStore, hosts *HostManager) http.HandlerF
 		if added > 0 {
 			hosts.Reload()
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"added": added,
-			"hosts": store.Get().Hosts,
-		})
+		writeJSON(w, http.StatusOK, importHostsResponse{Added: added, Hosts: store.Get().Hosts})
 	}
 }
 
@@ -288,6 +315,7 @@ func handleTest(notifier *Notifier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// An optional body lets the UI test the current (unsaved) settings; an
 		// empty body falls back to the saved configuration.
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		var body struct {
 			NtfyServer string `json:"ntfyServer"`
 			NtfyTopic  string `json:"ntfyTopic"`
@@ -302,9 +330,15 @@ func handleTest(notifier *Notifier) http.HandlerFunc {
 			err = notifier.Send("Test notification", "watchdock is connected and working", "default", "tada")
 		}
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+			// A missing topic is a caller/config problem (400); anything else is an
+			// upstream ntfy failure (502) — consistent with handleTestHost.
+			if errors.Is(err, ErrNoTopic) {
+				writeError(w, http.StatusBadRequest, err.Error())
+			} else {
+				writeError(w, http.StatusBadGateway, err.Error())
+			}
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"status": "sent"})
+		writeJSON(w, http.StatusOK, statusResponse{Status: "sent"})
 	}
 }
