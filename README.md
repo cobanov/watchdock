@@ -16,7 +16,16 @@ docker compose up -d --build
 
 Open **http://localhost:9622**, set an ntfy topic, and subscribe to it in the [ntfy app](https://ntfy.sh/) on your phone. That's it.
 
-> Prefer a prebuilt image? Multi-arch images are published at `ghcr.io/cobanov/watchdock`.
+**Or run the prebuilt image** (no clone) — for the local host:
+
+```bash
+docker run -d --name watchdock -p 9622:9622 \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v watchdock-data:/data \
+  cobanov/watchdock
+```
+
+Multi-arch images are on [Docker Hub](https://hub.docker.com/r/cobanov/watchdock) (`cobanov/watchdock`) and GHCR (`ghcr.io/cobanov/watchdock`). To also watch remote hosts over SSH, use the Compose setup above so your `~/.ssh` keys are mounted.
 
 ## Features
 
