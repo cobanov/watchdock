@@ -328,11 +328,19 @@ func (m *Monitor) reconcile(ctx context.Context, seed bool) {
 			m.onHealth(c.ID, name, c.Image, health)
 		}
 
-		// Sync any residual drift the handlers didn't cover (e.g. "" → "starting").
+		// Sync any residual drift the handlers didn't cover (e.g. "" → "starting"),
+		// but never clobber a field a concurrent event/handler already moved: only
+		// write what still matches the value we sampled as prev. Otherwise a start
+		// event landing mid-reconcile could be overwritten with a stale "stopped",
+		// making the next reconcile re-fire a duplicate "started".
 		m.mu.Lock()
 		if st, ok := m.states[c.ID]; ok {
-			st.running = running
-			st.health = health
+			if st.running == prevRunning {
+				st.running = running
+			}
+			if st.health == prevHealth {
+				st.health = health
+			}
 		}
 		m.mu.Unlock()
 	}

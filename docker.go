@@ -174,7 +174,10 @@ func healthFromStatus(status string) string {
 	return ""
 }
 
-var exitedRe = regexp.MustCompile(`^Exited \((\d+)\)`)
+// Matches both "Exited (137) ..." and "Restarting (1) ..." so a crash-looping
+// container discovered via reconcile (not the event stream) is still classified
+// by its real exit code instead of defaulting to a clean "stopped".
+var exitedRe = regexp.MustCompile(`^(?:Exited|Restarting) \((\d+)\)`)
 
 func exitCodeFromStatus(status string) int {
 	m := exitedRe.FindStringSubmatch(status)

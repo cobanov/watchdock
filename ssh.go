@@ -185,9 +185,17 @@ func (s *tofuKeyStore) callback() ssh.HostKeyCallback {
 				return nil
 			}
 			var keyErr *knownhosts.KeyError
-			if errors.As(err, &keyErr) && len(keyErr.Want) > 0 {
+			if !errors.As(err, &keyErr) {
+				// Anything that isn't a key mismatch (e.g. a revoked key or a
+				// parse error) must never fall through to the trust-and-append
+				// path below.
+				return fmt.Errorf("verify host key for %s: %w", hostname, err)
+			}
+			if len(keyErr.Want) > 0 {
 				return fmt.Errorf("host key mismatch for %s — remove its line from %s if the host was reinstalled", hostname, s.path)
 			}
+			// keyErr with no known keys for this host → genuinely first contact →
+			// fall through and record the key (trust on first use).
 		}
 
 		f, err := os.OpenFile(s.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
