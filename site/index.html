@@ -144,37 +144,19 @@ header{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg-bo
 .btn-outline:hover{background:var(--accent-muted)}
 .btn-lg{height:2.5rem;padding:0 1.25rem}
 
-/* ── AI "Try the live demo" CTA: spinning gradient ring + glow + sheen ── */
-.demo-cta{
-  position:relative;display:inline-flex;padding:2px;border-radius:var(--radius-element);
-  overflow:hidden;isolation:isolate;
-  box-shadow:0 8px 26px -10px rgba(139,92,246,.6);
-  animation:ai-glow 3s ease-in-out infinite;
-}
-.demo-cta::before{ /* rotating conic gradient, revealed as an animated border through the 2px pad */
-  content:"";position:absolute;left:50%;top:50%;width:240%;aspect-ratio:1;
-  translate:-50% -50%;z-index:-1;
-  background:conic-gradient(from 0deg,#8b5cf6,#ec4899,#6366f1,#22d3ee,#a855f7,#8b5cf6);
-  animation:ai-spin 3.5s linear infinite;
-}
+/* ── "Try the live demo" CTA: glow + sparkle ── */
 .btn-ai{
-  position:relative;overflow:hidden;border:none;color:#fff;
-  border-radius:calc(var(--radius-element) - 1px);
-  background:linear-gradient(135deg,#7c3aed,#9333ea 50%,#6d28d9);
+  border:none;color:#fff;
+  background:linear-gradient(135deg,#7c3aed,#a855f7);
+  box-shadow:0 6px 22px -6px rgba(168,85,247,.7);
+  animation:ai-glow 2.8s ease-in-out infinite;
+  transition:transform .15s,filter .15s;
 }
-.btn-ai::after{ /* sheen sweep */
-  content:"";position:absolute;inset:0;z-index:1;
-  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.4),transparent 65%);
-  transform:translateX(-130%);animation:ai-sheen 3.6s ease-in-out infinite;
-}
-.btn-ai-label,.btn-ai-icon{position:relative;z-index:2}
-.demo-cta:hover{transform:translateY(-1px);box-shadow:0 14px 40px -8px rgba(168,85,247,.9)}
-.demo-cta:hover::before{animation-duration:1.4s}
-.demo-cta:hover .btn-ai{filter:brightness(1.08)}
-@keyframes ai-spin{to{rotate:360deg}}
-@keyframes ai-glow{0%,100%{box-shadow:0 8px 24px -12px rgba(139,92,246,.5)}50%{box-shadow:0 12px 36px -8px rgba(168,85,247,.85)}}
-@keyframes ai-sheen{0%,55%{transform:translateX(-130%)}100%{transform:translateX(130%)}}
-@media(prefers-reduced-motion:reduce){.demo-cta,.demo-cta::before,.btn-ai::after{animation:none}}
+.btn-ai:hover{transform:translateY(-1px);filter:brightness(1.08)}
+.btn-ai .spark{width:1rem;height:1rem;flex:none;animation:ai-twinkle 2s ease-in-out infinite}
+@keyframes ai-glow{0%,100%{box-shadow:0 6px 20px -8px rgba(168,85,247,.55)}50%{box-shadow:0 10px 30px -6px rgba(168,85,247,.95)}}
+@keyframes ai-twinkle{0%,100%{opacity:.75;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+@media(prefers-reduced-motion:reduce){.btn-ai,.btn-ai .spark{animation:none}}
 
 /* hero */
 .hero{padding:5.5rem 0 3.5rem;text-align:center}
@@ -302,12 +284,10 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
     <h1>A tiny watchdog for your Docker containers.</h1>
     <p class="lede">watchdock runs as a single <b>~11 MB container</b>, watches every other container on your machines — <b>local or remote over SSH</b> — and pushes a notification to your phone via <a href="https://ntfy.sh" style="text-decoration:underline;text-underline-offset:3px">ntfy</a> when one crashes, goes unhealthy, or recovers.</p>
     <div class="hero-actions">
-      <span class="demo-cta">
-        <a class="btn btn-lg btn-ai" href="https://watchdock-demo.pages.dev" target="_blank" rel="noopener">
-          <span class="btn-ai-label">Try the live demo</span>
-          <svg class="btn-ai-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
-        </a>
-      </span>
+      <a class="btn btn-lg btn-ai" href="https://watchdock-demo.pages.dev" target="_blank" rel="noopener">
+        <svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
+        Try the live demo
+      </a>
       <a class="btn btn-outline btn-lg" href="#quickstart">Get started</a>
     </div>
     <p class="hero-hint">$ git clone https://github.com/cobanov/watchdock &amp;&amp; cd watchdock &amp;&amp; docker compose up -d --build</p>
