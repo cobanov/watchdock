@@ -80,7 +80,7 @@ func main() {
 	})
 	mux.HandleFunc("POST /api/test", handleTest(notifier))
 
-	srv := &http.Server{Addr: ":" + port, Handler: mux}
+	srv := &http.Server{Addr: ":" + port, Handler: withSecurityHeaders(mux)}
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -92,6 +92,23 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
+}
+
+// withSecurityHeaders adds defense-in-depth headers to every response. The app
+// bundles all its own assets and only calls its same-origin /api, so a strict
+// self-only CSP holds; 'unsafe-inline' is needed for React inline style attrs.
+func withSecurityHeaders(next http.Handler) http.Handler {
+	const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data:; font-src 'self' data:; connect-src 'self'; " +
+		"object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Content-Security-Policy", csp)
+		next.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
