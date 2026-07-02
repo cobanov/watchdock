@@ -33,6 +33,7 @@ const c = (
   state: string,
   health: string,
   status: string,
+  ports: string[] = [],
 ): Container => ({
   id: hexId(`${host}/${name}`),
   name,
@@ -40,6 +41,7 @@ const c = (
   state,
   health,
   status,
+  ports,
   ignored: false,
   host,
 })
@@ -48,30 +50,30 @@ const c = (
 // states so every status colour and the detail panel are visible at a glance.
 const containers: Record<string, Container[]> = {
   local: [
-    c("local", "watchdock", "ghcr.io/cobanov/watchdock:latest", "running", "healthy", "Up 6 days (healthy)"),
-    c("local", "traefik", "traefik:v3", "running", "healthy", "Up 6 days (healthy)"),
-    c("local", "portainer", "portainer/portainer-ce:latest", "running", "none", "Up 6 days"),
-    c("local", "grafana", "grafana/grafana:latest", "running", "healthy", "Up 6 days (healthy)"),
-    c("local", "prometheus", "prom/prometheus:latest", "running", "none", "Up 6 days"),
+    c("local", "watchdock", "ghcr.io/cobanov/watchdock:latest", "running", "healthy", "Up 6 days (healthy)", ["8080→8080/tcp"]),
+    c("local", "traefik", "traefik:v3", "running", "healthy", "Up 6 days (healthy)", ["80→80/tcp", "443→443/tcp", "8080/tcp"]),
+    c("local", "portainer", "portainer/portainer-ce:latest", "running", "none", "Up 6 days", ["9000→9000/tcp"]),
+    c("local", "grafana", "grafana/grafana:latest", "running", "healthy", "Up 6 days (healthy)", ["3000→3000/tcp"]),
+    c("local", "prometheus", "prom/prometheus:latest", "running", "none", "Up 6 days", ["9090→9090/tcp"]),
   ],
   "web-prod": [
-    c("web-prod", "nginx", "nginx:1.27-alpine", "running", "healthy", "Up 12 days (healthy)"),
-    c("web-prod", "storefront", "ghcr.io/acme/storefront:2.4.1", "running", "healthy", "Up 2 days (healthy)"),
-    c("web-prod", "api", "ghcr.io/acme/api:2.4.1", "running", "healthy", "Up 2 days (healthy)"),
+    c("web-prod", "nginx", "nginx:1.27-alpine", "running", "healthy", "Up 12 days (healthy)", ["80→80/tcp", "443→443/tcp"]),
+    c("web-prod", "storefront", "ghcr.io/acme/storefront:2.4.1", "running", "healthy", "Up 2 days (healthy)", ["3000/tcp"]),
+    c("web-prod", "api", "ghcr.io/acme/api:2.4.1", "running", "healthy", "Up 2 days (healthy)", ["8080/tcp"]),
     c("web-prod", "worker", "ghcr.io/acme/worker:2.4.1", "running", "none", "Up 2 days"),
-    c("web-prod", "redis", "redis:7-alpine", "running", "healthy", "Up 12 days (healthy)"),
+    c("web-prod", "redis", "redis:7-alpine", "running", "healthy", "Up 12 days (healthy)", ["6379/tcp"]),
   ],
   "db-prod": [
-    c("db-prod", "postgres-primary", "postgres:16", "running", "healthy", "Up 30 days (healthy)"),
-    c("db-prod", "postgres-replica", "postgres:16", "running", "healthy", "Up 30 days (healthy)"),
-    c("db-prod", "pgbouncer", "edoburu/pgbouncer:latest", "running", "none", "Up 30 days"),
+    c("db-prod", "postgres-primary", "postgres:16", "running", "healthy", "Up 30 days (healthy)", ["5432→5432/tcp"]),
+    c("db-prod", "postgres-replica", "postgres:16", "running", "healthy", "Up 30 days (healthy)", ["5433→5432/tcp"]),
+    c("db-prod", "pgbouncer", "edoburu/pgbouncer:latest", "running", "none", "Up 30 days", ["6432→6432/tcp"]),
     c("db-prod", "nightly-backup", "ghcr.io/acme/pgbackup:1.2", "exited", "none", "Exited (0) 3 hours ago"),
   ],
   edge: [
-    c("edge", "caddy", "caddy:2-alpine", "running", "healthy", "Up 8 days (healthy)"),
+    c("edge", "caddy", "caddy:2-alpine", "running", "healthy", "Up 8 days (healthy)", ["80→80/tcp", "443→443/tcp"]),
     c("edge", "cloudflared", "cloudflare/cloudflared:latest", "running", "none", "Up 8 days"),
-    c("edge", "jellyfin", "jellyfin/jellyfin:latest", "running", "unhealthy", "Up 5 hours (unhealthy)"),
-    c("edge", "qbittorrent", "linuxserver/qbittorrent:latest", "restarting", "none", "Restarting (1) 40 seconds ago"),
+    c("edge", "jellyfin", "jellyfin/jellyfin:latest", "running", "unhealthy", "Up 5 hours (unhealthy)", ["8096→8096/tcp"]),
+    c("edge", "qbittorrent", "linuxserver/qbittorrent:latest", "restarting", "none", "Restarting (1) 40 seconds ago", ["8080→8080/tcp", "6881→6881/tcp", "6881→6881/udp"]),
   ],
 }
 

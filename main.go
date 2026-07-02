@@ -156,13 +156,14 @@ type statusResponse struct {
 const maxBodyBytes = 1 << 20 // 1 MiB
 
 type apiContainer struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Image   string `json:"image"`
-	State   string `json:"state"`
-	Health  string `json:"health"`
-	Status  string `json:"status"`
-	Ignored bool   `json:"ignored"`
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	Image   string   `json:"image"`
+	State   string   `json:"state"`
+	Health  string   `json:"health"`
+	Status  string   `json:"status"`
+	Ports   []string `json:"ports"`
+	Ignored bool     `json:"ignored"`
 }
 
 func toAPIContainer(c Container, cfg Config) apiContainer {
@@ -177,6 +178,7 @@ func toAPIContainer(c Container, cfg Config) apiContainer {
 		State:   c.State,
 		Health:  healthFromStatus(c.Status),
 		Status:  c.Status,
+		Ports:   c.PortLabels(),
 		Ignored: isIgnored(cfg.Ignore, c.Name()),
 	}
 }

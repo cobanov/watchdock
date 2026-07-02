@@ -126,6 +126,7 @@ const columns: TableColumn<Record<string, unknown>>[] = [
   { key: "status", header: "", width: pixel(40) },
   { key: "name", header: "Container", width: proportional(1) },
   { key: "state", header: "Status", width: pixel(120) },
+  { key: "ports", header: "Ports", width: pixel(180) },
   { key: "uptime", header: "Uptime", width: pixel(140) },
   { key: "host", header: "Host", width: pixel(96) },
   { key: "actions", header: "", width: pixel(48) },
@@ -220,6 +221,25 @@ function StatCard({
   )
 }
 
+// Ports render as monospace text; the full list lives in a tooltip so a
+// container with many mappings stays a single truncated row.
+function PortsCell({ ports }: { ports: string[] }) {
+  if (!ports || ports.length === 0) {
+    return (
+      <Text type="supporting" color="disabled">
+        —
+      </Text>
+    )
+  }
+  return (
+    <Tooltip content={ports.join(", ")} hasHoverIndication={false}>
+      <Text type="code" size="sm" color="secondary" maxLines={1}>
+        {ports.join("  ")}
+      </Text>
+    </Tooltip>
+  )
+}
+
 function ContainerRow({
   container,
   onSelect,
@@ -267,6 +287,9 @@ function ContainerRow({
       </TableCell>
       <TableCell>
         <StatusBadge kind={s.kind} label={s.label} />
+      </TableCell>
+      <TableCell>
+        <PortsCell ports={container.ports} />
       </TableCell>
       <TableCell>
         <Text type="supporting" color="secondary" maxLines={1}>
@@ -597,6 +620,15 @@ export function ContainerDetailPanel({
             <Badge variant="neutral" label={healthLabel(container.health)} />
           </MetadataListItem>
           <MetadataListItem label="Host">{container.host}</MetadataListItem>
+          <MetadataListItem label="Ports">
+            {container.ports && container.ports.length > 0 ? (
+              <Text type="code" size="sm">
+                {container.ports.join("  ")}
+              </Text>
+            ) : (
+              "None published"
+            )}
+          </MetadataListItem>
           <MetadataListItem label="Uptime">{container.status}</MetadataListItem>
           <MetadataListItem label="Monitored">
             {container.ignored ? "Ignored" : "Yes"}

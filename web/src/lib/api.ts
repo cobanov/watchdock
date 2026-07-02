@@ -16,6 +16,7 @@ export interface Container {
   state: string
   health: string
   status: string
+  ports: string[]
   ignored: boolean
   host: string
 }

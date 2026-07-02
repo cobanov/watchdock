@@ -110,6 +110,48 @@ type Container struct {
 	State   string   `json:"State"`  // running, exited, paused, ...
 	Status  string   `json:"Status"` // e.g. "Up 2 hours (healthy)", "Exited (1) 5 minutes ago"
 	Created int64    `json:"Created"`
+	Ports   []Port   `json:"Ports"`
+}
+
+// Port is one entry of the Docker container's port table. PublicPort is 0 when
+// the container port isn't published to the host.
+type Port struct {
+	IP          string `json:"IP"`
+	PrivatePort int    `json:"PrivatePort"`
+	PublicPort  int    `json:"PublicPort"`
+	Type        string `json:"Type"` // tcp, udp, sctp
+}
+
+// PortLabels renders the port table into compact, deduplicated strings for the
+// UI. Published ports (reachable from the host) come first and read
+// "<public>→<private>/<type>"; unpublished container ports read "<private>/<type>".
+// Docker lists the same mapping once per host IP (0.0.0.0 and ::), so identical
+// labels are collapsed.
+func (ct Container) PortLabels() []string {
+	var published, internal []string
+	seen := map[string]bool{}
+	add := func(dst *[]string, label string) {
+		if seen[label] {
+			return
+		}
+		seen[label] = true
+		*dst = append(*dst, label)
+	}
+	for _, p := range ct.Ports {
+		if p.PrivatePort == 0 {
+			continue
+		}
+		typ := p.Type
+		if typ == "" {
+			typ = "tcp"
+		}
+		if p.PublicPort != 0 {
+			add(&published, fmt.Sprintf("%d→%d/%s", p.PublicPort, p.PrivatePort, typ))
+		} else {
+			add(&internal, fmt.Sprintf("%d/%s", p.PrivatePort, typ))
+		}
+	}
+	return append(published, internal...)
 }
 
 func (ct Container) Name() string {
