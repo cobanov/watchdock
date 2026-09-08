@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -16,6 +17,13 @@ import (
 )
 
 const remoteDockerSocket = "/var/run/docker.sock"
+
+// Some hardened SSH servers (notably Synology DSM) disable direct Unix socket
+// forwarding even when the user can access Docker. Docker's dial-stdio command
+// carries the same API stream over a regular SSH exec channel, which remains
+// available on those hosts. The explicit fallback paths cover non-login shells
+// whose PATH omits the Docker CLI location.
+const remoteDockerDialCommand = `if command -v docker >/dev/null 2>&1; then exec docker system dial-stdio; elif [ -x /usr/local/bin/docker ]; then exec /usr/local/bin/docker system dial-stdio; elif [ -x /var/packages/ContainerManager/target/usr/bin/docker ]; then exec /var/packages/ContainerManager/target/usr/bin/docker system dial-stdio; else echo "docker CLI not found" >&2; exit 127; fi`
 
 // sshKeyDir is where the user's ~/.ssh is mounted inside the container.
 var sshKeyDir = envOr("SSH_KEY_DIR", "/ssh")
@@ -146,9 +154,70 @@ func (t *sshTransport) DialContext(ctx context.Context, _, _ string) (net.Conn, 
 			return nil, err
 		}
 		conn, err = t.client.Dial("unix", remoteDockerSocket)
+		if err != nil {
+			return t.dialDockerCommandLocked()
+		}
 	}
 	return conn, err
 }
+
+// dialDockerCommandLocked opens a Docker API byte stream through an ordinary
+// SSH exec channel. The caller must hold t.mu and ensure t.client is connected.
+func (t *sshTransport) dialDockerCommandLocked() (net.Conn, error) {
+	session, err := t.client.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("open Docker dial-stdio session: %w", err)
+	}
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		session.Close()
+		return nil, fmt.Errorf("open Docker dial-stdio stdin: %w", err)
+	}
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		session.Close()
+		return nil, fmt.Errorf("open Docker dial-stdio stdout: %w", err)
+	}
+	if err := session.Start(remoteDockerDialCommand); err != nil {
+		session.Close()
+		return nil, fmt.Errorf("start Docker dial-stdio: %w", err)
+	}
+	return &sshCommandConn{Reader: stdout, Writer: stdin, stdin: stdin, session: session}, nil
+}
+
+// sshCommandConn adapts a bidirectional SSH command stream to net.Conn so it
+// can be used by net/http's Transport.
+type sshCommandConn struct {
+	io.Reader
+	io.Writer
+	stdin   io.Closer
+	session *ssh.Session
+	once    sync.Once
+}
+
+func (c *sshCommandConn) Close() error {
+	var closeErr error
+	c.once.Do(func() {
+		if err := c.stdin.Close(); err != nil {
+			closeErr = err
+		}
+		if err := c.session.Close(); err != nil && closeErr == nil && !errors.Is(err, io.EOF) {
+			closeErr = err
+		}
+	})
+	return closeErr
+}
+
+func (c *sshCommandConn) LocalAddr() net.Addr              { return commandAddr("ssh-local") }
+func (c *sshCommandConn) RemoteAddr() net.Addr             { return commandAddr("docker-remote") }
+func (c *sshCommandConn) SetDeadline(time.Time) error      { return nil }
+func (c *sshCommandConn) SetReadDeadline(time.Time) error  { return nil }
+func (c *sshCommandConn) SetWriteDeadline(time.Time) error { return nil }
+
+type commandAddr string
+
+func (a commandAddr) Network() string { return "ssh" }
+func (a commandAddr) String() string  { return string(a) }
 
 func (t *sshTransport) Close() {
 	t.mu.Lock()

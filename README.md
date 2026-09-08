@@ -44,6 +44,7 @@ Runs anywhere Docker does: macOS, Windows (WSL2), Linux.
 Add a machine with the **+** next to *Hosts* in the sidebar (or the **Manage hosts** page): its address, SSH user, and optionally a port, alias, key path or password.
 
 - **Auth:** SSH keys / ssh-agent (recommended) or a password (stored in plain text in the config). Keys are read from `~/.ssh`, mounted read-only into the container. The remote user must be able to reach `/var/run/docker.sock` (i.e. in the `docker` group).
+- **Hardened SSH servers:** when direct Unix socket forwarding is disabled, watchdock automatically falls back to `docker system dial-stdio` over a regular SSH command channel. This supports Synology DSM without weakening its global SSH forwarding policy.
 - **Manage:** the toggle next to a host pauses/resumes monitoring. The Hosts page imports/exports hosts as JSON (passwords are never exported), and watchdock also picks up hosts from your mounted `~/.ssh/config`.
 
 ### Environment variables
