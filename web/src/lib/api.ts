@@ -29,6 +29,7 @@ export interface HostConfig {
   keyPath?: string
   password?: string
   disabled?: boolean
+  ntfyTopic?: string
 }
 
 export interface HostStatus {
@@ -190,6 +191,7 @@ function publicHost(h: HostConfig): HostConfig {
   if (h.port) out.port = h.port
   if (h.keyPath) out.keyPath = h.keyPath
   if (h.disabled) out.disabled = h.disabled
+  if (h.ntfyTopic) out.ntfyTopic = h.ntfyTopic
   return out
 }
 

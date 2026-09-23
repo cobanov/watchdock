@@ -30,7 +30,7 @@ interface HostDialogProps {
   onSaved: (alias: string | null) => void
 }
 
-const EMPTY = { alias: "", host: "", user: "", port: "", keyPath: "", password: "" }
+const EMPTY = { alias: "", host: "", user: "", port: "", keyPath: "", password: "", ntfyTopic: "" }
 
 function toForm(h: HostConfig): typeof EMPTY {
   return {
@@ -40,6 +40,7 @@ function toForm(h: HostConfig): typeof EMPTY {
     port: h.port ? String(h.port) : "",
     keyPath: h.keyPath ?? "",
     password: h.password ?? "",
+    ntfyTopic: h.ntfyTopic ?? "",
   }
 }
 
@@ -94,6 +95,7 @@ function HostForm({
     keyPath: form.keyPath.trim() || undefined,
     password: form.password || undefined,
     disabled: editing?.disabled,
+    ntfyTopic: form.ntfyTopic.trim() || undefined,
   })
 
   const handleTest = async () => {
@@ -223,6 +225,14 @@ function HostForm({
             hint="Keys are read from ~/.ssh mounted into the container; ssh-agent is used when available."
             value={form.keyPath}
             onChange={set("keyPath")}
+          />
+          <Field
+            id="ntfyTopic"
+            label="Notification topic (optional)"
+            placeholder="defaults to the global topic"
+            hint="Send this host's alerts to their own ntfy topic, for example a team topic for work machines."
+            value={form.ntfyTopic}
+            onChange={set("ntfyTopic")}
           />
           <Field
             id="password"

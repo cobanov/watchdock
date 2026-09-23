@@ -30,6 +30,10 @@ type HostConfig struct {
 	KeyPath  string `json:"keyPath,omitempty"`  // empty: default keys in /ssh
 	Password string `json:"password,omitempty"` // optional; stored in plain text, prefer keys
 	Disabled bool   `json:"disabled,omitempty"`
+	// NtfyTopic sends this host's alerts to their own topic instead of the
+	// global one, so one watchdock can route work machines to a team topic
+	// and the rest to a personal one. Empty uses the global topic.
+	NtfyTopic string `json:"ntfyTopic,omitempty"`
 }
 
 func defaultConfig() Config {

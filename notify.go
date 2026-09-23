@@ -32,6 +32,29 @@ func (n *Notifier) Send(title, message, priority, tags string) error {
 	return n.send(cfg.NtfyServer, cfg.NtfyTopic, cfg.NtfyToken, title, message, priority, tags)
 }
 
+// SendFor publishes an alert raised on the host with the given alias, to that
+// host's own topic when it has one and to the global topic otherwise.
+func (n *Notifier) SendFor(alias, title, message, priority, tags string) error {
+	cfg := n.store.Get()
+	return n.send(cfg.NtfyServer, topicFor(cfg, alias), cfg.NtfyToken, title, message, priority, tags)
+}
+
+// topicFor picks the ntfy topic for alerts from the host with this alias: its
+// own override when set, the global topic otherwise. The daemon watchdock runs
+// on ("local") has no host entry, so it always uses the global topic.
+func topicFor(cfg Config, alias string) string {
+	for _, h := range cfg.Hosts {
+		if h.Alias != alias {
+			continue
+		}
+		if t := strings.TrimSpace(h.NtfyTopic); t != "" {
+			return t
+		}
+		break
+	}
+	return cfg.NtfyTopic
+}
+
 // SendTestTo sends the canned test message to an explicit target, letting the
 // UI verify settings before they are saved.
 func (n *Notifier) SendTestTo(server, topic, token string) error {
