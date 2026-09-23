@@ -383,7 +383,7 @@ func (m *Monitor) send(id, name, kind, title, message, priority, tags string) {
 
 	log.Printf("[%s] notify [%s] %s: %s", m.host, kind, name, message)
 	go func() {
-		if err := m.notify.Send(title, message, priority, tags); err != nil {
+		if err := m.notify.SendFor(m.host, title, message, priority, tags); err != nil {
 			log.Printf("[%s] notify [%s] %s failed: %v", m.host, kind, name, err)
 		}
 	}()
