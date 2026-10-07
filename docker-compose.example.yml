@@ -1,0 +1,24 @@
+# watchdock, from the published image. Save as docker-compose.yml and run
+# `docker compose up -d`, then open http://localhost:9622.
+services:
+  watchdock:
+    image: ghcr.io/cobanov/watchdock:1
+    container_name: watchdock
+    restart: unless-stopped
+    ports:
+      - "9622:9622"
+    volumes:
+      # The local Docker daemon, read-only.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Config, event log and trusted SSH host keys.
+      - watchdock-data:/data
+      # Remote hosts over SSH: your keys and ~/.ssh/config, read-only.
+      # Remove this line if you only watch this machine.
+      - ~/.ssh:/ssh:ro
+      # macOS with Docker Desktop: uncomment to use your ssh-agent instead of key files.
+      # - /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock
+    # environment:
+    #   SSH_AUTH_SOCK: /run/host-services/ssh-auth.sock
+
+volumes:
+  watchdock-data:
