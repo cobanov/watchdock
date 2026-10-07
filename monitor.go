@@ -43,6 +43,7 @@ type Monitor struct {
 	mu           sync.Mutex
 	states       map[string]*containerState
 	lastNotified map[string]time.Time
+	unreachable  bool   // the last reconcile could not reach the daemon
 	selfHost     string // container hostname == short container ID when dockerized
 }
 
@@ -104,7 +105,11 @@ func (m *Monitor) eventLoop(ctx context.Context) {
 		if time.Since(connectedAt) > time.Minute {
 			backoff = time.Second
 		}
-		log.Printf("[%s] docker event stream lost: %v (reconnecting in %s)", m.host, err, backoff)
+		// Reconcile already reported an offline host; don't repeat it here
+		// on every retry.
+		if !m.isUnreachable() {
+			log.Printf("[%s] docker event stream lost: %v (reconnecting in %s)", m.host, err, backoff)
+		}
 		select {
 		case <-time.After(backoff):
 		case <-ctx.Done():
@@ -292,8 +297,13 @@ func (m *Monitor) reconcile(ctx context.Context, seed bool) {
 	defer cancel()
 	list, err := m.docker.ListContainers(listCtx)
 	if err != nil {
-		log.Printf("[%s] reconcile: %v", m.host, err)
+		if m.setReachable(false) {
+			log.Printf("[%s] unreachable: %v", m.host, err)
+		}
 		return
+	}
+	if m.setReachable(true) {
+		log.Printf("[%s] reachable again", m.host)
 	}
 
 	seen := map[string]bool{}
@@ -352,6 +362,23 @@ func (m *Monitor) reconcile(ctx context.Context, seed bool) {
 		}
 	}
 	m.mu.Unlock()
+}
+
+// setReachable records whether the last reconcile reached the daemon and
+// reports whether that changed, so an offline host is logged once instead of
+// twice a minute until it returns.
+func (m *Monitor) setReachable(ok bool) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	changed := m.unreachable == ok
+	m.unreachable = !ok
+	return changed
+}
+
+func (m *Monitor) isUnreachable() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.unreachable
 }
 
 // send applies the config toggles, ignore list, self-exclusion and cooldown,

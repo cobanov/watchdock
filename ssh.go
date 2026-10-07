@@ -30,8 +30,18 @@ var sshKeyDir = envOr("SSH_KEY_DIR", "/ssh")
 
 var defaultKeyNames = []string{"id_ed25519", "id_rsa", "id_ecdsa"}
 
+// sshHandshakeTimeout bounds the SSH handshake after the TCP connect.
+const sshHandshakeTimeout = 10 * time.Second
+
+// channelOpenTimeout bounds opening one Docker stream on an established
+// session. A live server answers in milliseconds; no answer means the
+// connection died without the TCP stack noticing yet. A var so tests can
+// shorten it.
+var channelOpenTimeout = 10 * time.Second
+
 // sshTransport keeps one SSH connection per remote host and opens Docker API
-// streams over it by forwarding the remote unix socket.
+// streams over it by forwarding the remote unix socket, or through Docker's
+// dial-stdio on hosts that refuse socket forwarding.
 type sshTransport struct {
 	cfg      HostConfig
 	hostKeys *tofuKeyStore
@@ -115,7 +125,6 @@ func (t *sshTransport) connectLocked(ctx context.Context) error {
 		User:            t.cfg.User,
 		Auth:            methods,
 		HostKeyCallback: t.hostKeys.callback(),
-		Timeout:         6 * time.Second,
 	}
 
 	// Bound the TCP connect so an unreachable host fails fast instead of
@@ -127,16 +136,21 @@ func (t *sshTransport) connectLocked(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("dial %s: %w", addr, err)
 	}
+	// NewClientConn has no timeout of its own (ClientConfig.Timeout only
+	// applies to ssh.Dial), so a server that accepts TCP but never finishes
+	// the handshake would hang this dial with t.mu held.
+	raw.SetDeadline(time.Now().Add(sshHandshakeTimeout))
 	sshConn, chans, reqs, err := ssh.NewClientConn(raw, addr, conf)
 	if err != nil {
 		raw.Close()
 		return fmt.Errorf("ssh %s@%s: %w", t.cfg.User, addr, err)
 	}
+	raw.SetDeadline(time.Time{})
 	t.client = ssh.NewClient(sshConn, chans, reqs)
 	return nil
 }
 
-// DialContext opens a stream to the remote Docker socket, reconnecting the
+// DialContext opens a stream to the remote Docker daemon, reconnecting the
 // SSH session once if it has gone stale.
 func (t *sshTransport) DialContext(ctx context.Context, _, _ string) (net.Conn, error) {
 	t.mu.Lock()
@@ -146,19 +160,52 @@ func (t *sshTransport) DialContext(ctx context.Context, _, _ string) (net.Conn, 
 			return nil, err
 		}
 	}
-	conn, err := t.client.Dial("unix", remoteDockerSocket)
-	if err != nil {
-		t.client.Close()
-		t.client = nil
-		if err := t.connectLocked(ctx); err != nil {
-			return nil, err
+	conn, err := t.dialDockerLocked()
+	var refused *ssh.OpenChannelError
+	if err == nil || errors.As(err, &refused) {
+		// A refused channel comes from a live session. Reconnecting would
+		// not help, and closing the session would cut every stream already
+		// running on it, the event stream included.
+		return conn, err
+	}
+	t.client.Close()
+	t.client = nil
+	if err := t.connectLocked(ctx); err != nil {
+		return nil, err
+	}
+	return t.dialDockerLocked()
+}
+
+// dialDockerLocked opens one Docker API stream on the current session: a
+// forwarded unix socket where the server allows it, dial-stdio where it does
+// not. The caller must hold t.mu and ensure t.client is connected.
+func (t *sshTransport) dialDockerLocked() (net.Conn, error) {
+	// Opening a channel has no deadline of its own: on a connection that died
+	// silently it would block until TCP gives up, many minutes later, with
+	// t.mu held and every request to this host queued behind it. Closing the
+	// session fails the open at once.
+	client := t.client
+	watchdog := time.AfterFunc(channelOpenTimeout, func() { client.Close() })
+	conn, err := t.openDockerStreamLocked()
+	if !watchdog.Stop() {
+		if conn != nil {
+			conn.Close()
 		}
-		conn, err = t.client.Dial("unix", remoteDockerSocket)
-		if err != nil {
-			return t.dialDockerCommandLocked()
-		}
+		return nil, fmt.Errorf("ssh %s: no reply from server within %s", t.cfg.Host, channelOpenTimeout)
 	}
 	return conn, err
+}
+
+func (t *sshTransport) openDockerStreamLocked() (net.Conn, error) {
+	conn, err := t.client.Dial("unix", remoteDockerSocket)
+	var refused *ssh.OpenChannelError
+	if !errors.As(err, &refused) {
+		return conn, err
+	}
+	// The server is up but won't forward the socket (Synology answers
+	// "connect failed", same as a missing socket would), so go through the
+	// Docker CLI instead. Pooled connections keep these dials rare.
+	return t.dialDockerCommandLocked()
 }
 
 // dialDockerCommandLocked opens a Docker API byte stream through an ordinary
