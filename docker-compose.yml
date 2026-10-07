@@ -1,19 +1,21 @@
+# Builds watchdock from this checkout. To run the published image instead,
+# use docker-compose.example.yml (see the README quick start).
 services:
   watchdock:
     build: .
     container_name: watchdock
     ports:
       - "9622:9622"
-    environment:
-      # Docker Desktop (macOS/Windows) ssh-agent socket; harmless on Linux.
-      SSH_AUTH_SOCK: /run/host-services/ssh-auth.sock
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # Volume name kept as dockwatch-data so existing deployments keep their config/events.
       - dockwatch-data:/data
       # SSH keys for monitoring remote hosts (read-only).
       - ~/.ssh:/ssh:ro
-      - /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock
+      # macOS with Docker Desktop: uncomment to use your ssh-agent instead of key files.
+      # - /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock
+    # environment:
+    #   SSH_AUTH_SOCK: /run/host-services/ssh-auth.sock
     restart: unless-stopped
 
 volumes:

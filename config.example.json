@@ -1,0 +1,26 @@
+{
+  "ntfyServer": "https://ntfy.sh",
+  "ntfyTopic": "watchdock-3f9a1c7e2b4d",
+  "ntfyToken": "",
+  "notifyUnhealthy": true,
+  "notifyDown": true,
+  "notifyRecovered": true,
+  "notifyStopped": false,
+  "notifyStarted": false,
+  "ignore": ["*-migrate-*", "buildx_buildkit_*"],
+  "hosts": [
+    {
+      "alias": "nas",
+      "host": "192.168.1.20",
+      "user": "admin",
+      "port": 22,
+      "keyPath": "/ssh/id_ed25519",
+      "ntfyTopic": "watchdock-home-7d21e09a"
+    },
+    {
+      "alias": "vps",
+      "host": "203.0.113.10",
+      "user": "deploy"
+    }
+  ]
+}

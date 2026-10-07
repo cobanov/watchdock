@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -39,7 +42,7 @@ type HostConfig struct {
 func defaultConfig() Config {
 	return Config{
 		NtfyServer:      "https://ntfy.sh",
-		NtfyTopic:       "watchdock",
+		NtfyTopic:       randomTopic(),
 		NotifyUnhealthy: true,
 		NotifyDown:      true,
 		NotifyRecovered: true,
@@ -48,6 +51,15 @@ func defaultConfig() Config {
 		Ignore:          []string{},
 		Hosts:           []HostConfig{},
 	}
+}
+
+// randomTopic names a fresh install's ntfy topic. On a public server anyone
+// who knows a topic can read it, so a shared default like "watchdock" would put
+// every new install's container names in one public feed.
+func randomTopic() string {
+	b := make([]byte, 6)
+	rand.Read(b) // never fails since Go 1.24
+	return "watchdock-" + hex.EncodeToString(b)
 }
 
 // ConfigStore is a thread-safe view of the config, persisted as JSON on disk.
@@ -61,6 +73,11 @@ func NewConfigStore(path string) (*ConfigStore, error) {
 	s := &ConfigStore{path: path, cfg: defaultConfig()}
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
+		// Save the first-run defaults so the generated topic survives a restart;
+		// a phone subscribed to it would otherwise go silent.
+		if err := s.Set(s.cfg); err != nil {
+			log.Printf("config: could not save defaults to %s: %v", path, err)
+		}
 		return s, nil
 	}
 	if err != nil {

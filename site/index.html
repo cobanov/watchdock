@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>watchdock — container monitoring with push notifications</title>
-<meta name="description" content="A tiny self-hosted watchdog for your Docker containers. One ~11 MB container watches your whole fleet — local or over SSH — and pushes a notification to your phone via ntfy when something breaks.">
+<title>watchdock: container monitoring with push notifications</title>
+<meta name="description" content="A tiny self-hosted watchdog for your Docker containers. One ~11 MB container watches your whole fleet, local or over SSH, and pushes a notification to your phone via ntfy when something breaks.">
 <meta property="og:title" content="watchdock">
 <meta property="og:description" content="A tiny self-hosted watchdog for your Docker containers. Get a push on your phone when one dies.">
 <meta property="og:type" content="website">
@@ -27,7 +27,7 @@
 <style>
 /*
  * Tokens mirrored from the app's Astryx neutralTheme
- * (node_modules/@astryxdesign/theme-neutral/dist/theme.css) — keep in sync.
+ * (node_modules/@astryxdesign/theme-neutral/dist/theme.css); keep in sync.
  * The site adopts the app's look: Figtree, a grey body with white surfaces,
  * Astryx radii, and status colour reserved for ok / warn / alert / idle.
  */
@@ -127,7 +127,7 @@ header{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg-bo
 .nav-links a:hover{color:var(--text-primary)}
 @media(max-width:760px){.nav-links{display:none}}
 
-/* icon button — Astryx ghost IconButton */
+/* icon button: Astryx ghost IconButton */
 .icon-btn{width:2.25rem;height:2.25rem;border-radius:var(--radius-element);border:1px solid transparent;background:transparent;color:var(--text-secondary);display:grid;place-items:center;cursor:pointer;transition:background .15s,color .15s}
 .icon-btn:hover{background:var(--accent-muted);color:var(--text-primary)}
 .icon-btn svg{width:1.125rem;height:1.125rem}
@@ -283,7 +283,7 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
   <div class="wrap">
     <span class="pill"><span class="dot dot-ok"></span>Open source · Self-hosted · MIT</span>
     <h1>A tiny watchdog for your Docker containers.</h1>
-    <p class="lede">watchdock runs as a single <b>~11 MB container</b>, watches every other container on your machines — <b>local or remote over SSH</b> — and pushes a notification to your phone via <a href="https://ntfy.sh" style="text-decoration:underline;text-underline-offset:3px">ntfy</a> when one crashes, goes unhealthy, or recovers.</p>
+    <p class="lede">watchdock runs as a single <b>~11 MB container</b>, watches every other container on your machines, <b>local or remote over SSH</b>, and pushes a notification to your phone via <a href="https://ntfy.sh" style="text-decoration:underline;text-underline-offset:3px">ntfy</a> when one crashes, goes unhealthy, or recovers.</p>
     <div class="hero-actions">
       <a class="btn btn-lg btn-ai" href="https://watchdock-demo.pages.dev" target="_blank" rel="noopener">
         <svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
@@ -291,7 +291,7 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
       </a>
       <a class="btn btn-outline btn-lg" href="#quickstart">Get started</a>
     </div>
-    <p class="hero-hint">$ git clone https://github.com/cobanov/watchdock &amp;&amp; cd watchdock &amp;&amp; docker compose up -d --build</p>
+    <p class="hero-hint">$ docker run -d -p 9622:9622 -v /var/run/docker.sock:/var/run/docker.sock:ro -v watchdock-data:/data ghcr.io/cobanov/watchdock:1</p>
   </div>
   <div class="wrap shot">
     <div class="shot-frame">
@@ -312,7 +312,7 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
       <div class="card feature">
         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>
         <h3>Push to your phone</h3>
-        <p>Crashes, failing healthchecks and recoveries land on your phone in seconds — through public ntfy.sh or your own ntfy server, with token auth supported.</p>
+        <p>Crashes, failing healthchecks and recoveries land on your phone in seconds, through public ntfy.sh or your own ntfy server, with token auth supported.</p>
       </div>
       <div class="card feature">
         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25a2.25 2.25 0 0 1 2.25 2.25v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25zM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25z"/></svg></div>
@@ -327,17 +327,17 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
       <div class="card feature">
         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg></div>
         <h3>Remote hosts over SSH</h3>
-        <p>Add a host from the UI over SSH keys or ssh-agent — nothing to install on the other side. Import and export hosts as JSON, and watchdock picks up your <code>~/.ssh/config</code> too.</p>
+        <p>Add a host from the UI over SSH keys or ssh-agent: nothing to install on the other side. Import and export hosts as JSON, and watchdock picks up your <code>~/.ssh/config</code> too.</p>
       </div>
       <div class="card feature">
         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><path d="m1 1 22 22"/></svg></div>
         <h3>Quiet by design</h3>
-        <p>Notifications fire on state transitions only, rate-limited per container and per type — a crash loop won't flood your phone. An ignore list mutes the rest.</p>
+        <p>Notifications fire on state transitions only, rate-limited per container and per type, so a crash loop won't flood your phone. An ignore list mutes the rest.</p>
       </div>
       <div class="card feature">
         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg></div>
         <h3>Tiny and config-free</h3>
-        <p>A single ~11 MB static Go binary with the UI embedded. No config files to edit — everything's set in the UI and saved to a Docker volume, with light and dark themes.</p>
+        <p>A single ~11 MB static Go binary with the UI embedded. No config files to edit: everything's set in the UI and saved to a Docker volume, with light and dark themes.</p>
       </div>
     </div>
   </div>
@@ -350,11 +350,11 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
       <h2>Five signals, your rules</h2>
       <p>Each notification type has its own toggle, straight from the web UI. Want only the bad news? Keep <b>unhealthy</b> and <b>crashed</b>. Want the full play-by-play, starts and stops included? Switch everything on.</p>
       <ul class="rules-list">
-        <li><span class="dot dot-alert"></span>Unhealthy — a healthcheck starts failing</li>
-        <li><span class="dot dot-alert"></span>Crashed — died with a non-zero exit code</li>
-        <li><span class="dot dot-ok"></span>Recovered — back healthy, or back up</li>
-        <li><span class="dot dot-idle"></span>Stopped — clean exits and manual stops</li>
-        <li><span class="dot dot-ok"></span>Started — a container starts or restarts</li>
+        <li><span class="dot dot-alert"></span>Unhealthy: a healthcheck starts failing</li>
+        <li><span class="dot dot-alert"></span>Crashed: died with a non-zero exit code</li>
+        <li><span class="dot dot-ok"></span>Recovered: back healthy, or back up</li>
+        <li><span class="dot dot-idle"></span>Stopped: clean exits and manual stops</li>
+        <li><span class="dot dot-ok"></span>Started: a container starts or restarts</li>
       </ul>
     </div>
     <div class="card">
@@ -393,7 +393,7 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
   <div class="wrap">
     <div class="sec-head">
       <h2>Running in two minutes</h2>
-      <p>Works anywhere Docker Desktop or the Docker daemon runs — macOS, Windows (WSL2), Linux.</p>
+      <p>Works anywhere Docker Desktop or the Docker daemon runs: macOS, Windows (WSL2), Linux.</p>
     </div>
     <div class="steps">
       <ol class="step-list">
@@ -401,14 +401,14 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
           <span class="step-num">1</span>
           <div>
             <h3>Run it</h3>
-            <p>Clone the repo and bring it up with compose. The image builds locally in seconds.</p>
+            <p>Grab the compose file and start the published image. Nothing to build, nothing to configure first.</p>
           </div>
         </li>
         <li class="step">
           <span class="step-num">2</span>
           <div>
             <h3>Pick a topic</h3>
-            <p>Open <code>http://localhost:9622</code>, set an ntfy topic, hit <b>Save</b>, then <b>Send test notification</b>. Pick something unguessable — anyone who knows the topic can read it.</p>
+            <p>Open <code>http://localhost:9622</code>. watchdock has already generated a private ntfy topic for you; hit <b>Send test notification</b>. Anyone who knows a topic can read it, so keep it unguessable.</p>
           </div>
         </li>
         <li class="step">
@@ -420,15 +420,14 @@ footer{border-top:1px solid var(--border);padding:2rem 0 3rem;font-size:.875rem;
         </li>
       </ol>
       <div class="codeblock">
-        <button class="copy" data-copy="git clone https://github.com/cobanov/watchdock.git
-cd watchdock
-docker compose up -d --build">Copy</button>
-        <pre><span class="c"># grab it</span>
-git clone https://github.com/cobanov/watchdock.git
-cd watchdock
+        <button class="copy" data-copy="curl -fsSLo docker-compose.yml https://raw.githubusercontent.com/cobanov/watchdock/main/docker-compose.example.yml
+docker compose up -d">Copy</button>
+        <pre><span class="c"># grab the compose file</span>
+curl -fsSLo docker-compose.yml \
+  https://raw.githubusercontent.com/cobanov/watchdock/main/docker-compose.example.yml
 
 <span class="c"># run it</span>
-docker compose up -d --build
+docker compose up -d
 
 <span class="c"># open the dashboard</span>
 open http://localhost:9622</pre>
@@ -444,6 +443,7 @@ open http://localhost:9622</pre>
     <div>MIT © 2026 Mert Cobanov</div>
     <div class="foot-links">
       <a href="https://github.com/cobanov/watchdock">GitHub</a>
+      <a href="https://github.com/cobanov/watchdock#quick-start">Install</a>
       <a href="https://github.com/cobanov/watchdock#configuration">Docs</a>
       <a href="https://ntfy.sh">ntfy.sh</a>
     </div>
